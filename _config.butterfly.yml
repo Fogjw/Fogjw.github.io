@@ -28,13 +28,14 @@ code_blocks:
 
 # --- 头像 ---
 avatar:
-  img:
+  img: /img/avatar.png
   effect: false
 
 # --- 首页横幅 ---
 disable_top_img: false
-index_img:
-default_top_img:
+index_img: /img/bg002ax15.png
+background: /img/BG014A.png
+default_top_img: /img/bg905ax15.png
 subtitle:
   enable: true
   effect: true
@@ -131,3 +132,8 @@ mathjax:
 katex:
   enable: false
   per_page: false
+
+# --- 自定义样式 ---
+inject:
+  head:
+    - '<style>#page-header:not(.full_page){background-position:center top -150px!important}</style>'
