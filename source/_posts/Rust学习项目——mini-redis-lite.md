@@ -1,7 +1,7 @@
 ---
 title: Rust学习项目——mini-redis-lite
 date: 2026-07-17 18:23:55
-cover: /img/cg_sk07_0101.png
+cover: /img/cover/cg_sk07_0101.png
 tags:
   - 总结
   - 反思

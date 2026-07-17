@@ -1,13 +1,12 @@
 ---
 title: Hello World
-cover: /img/cg_ao01_0101.png
+cover: /img/cover/cg_ao01_0101.png
 date: 2026-07-17 12:30:00
 tags:
   - 随笔
 categories:
   - 杂谈
 ---
-
 欢迎来到我的博客。
 
 这是第一篇文章，用 Hexo + Butterfly 搭建，托管在 GitHub Pages 上。
