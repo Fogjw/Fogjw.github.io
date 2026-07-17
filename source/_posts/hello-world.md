@@ -1,5 +1,6 @@
 ---
 title: Hello World
+cover: /img/cg_ao01_0101.png
 date: 2026-07-17 12:30:00
 tags:
   - 随笔
