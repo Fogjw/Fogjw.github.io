@@ -1,0 +1,7 @@
+- class_name: '友情链接'
+  class_desc: '小伙伴们'
+  link_list:
+    - name: 'zzzzww8088'
+      link: https://github.com/zzzzww8088
+      avatar: https://github.com/zzzzww8088.png
+      descr: GitHub

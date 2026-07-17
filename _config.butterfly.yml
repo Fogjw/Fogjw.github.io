@@ -12,11 +12,14 @@ menu:
   归档: /archives/ || fas fa-archive
   标签: /tags/ || fas fa-tags
   分类: /categories/ || fas fa-folder-open
+  友链: /link/ || fas fa-link
   关于: /about/ || fas fa-heart
 
 # --- 社交链接 ---
 social:
-  fab fa-github: https://github.com/Fogjw || Github || '#24292e'
+  fab fa-github: https://github.com/Fogjw || GitHub || '#24292e'
+  fab fa-x-twitter: https://x.com/Foggggg0924 || X || '#000000'
+  fas fa-envelope: javascript:void(0) || QQ || '#4a7dbe'
 
 # --- 代码块 ---
 code_blocks:
@@ -136,4 +139,12 @@ katex:
 # --- 自定义样式 ---
 inject:
   head:
-    - '<style>#page-header:not(.full_page){background-position:center top -150px!important}</style>'
+    - '<style>#page-header:not(.full_page){background-position:center top -150px!important}
+.card-info-social-icons{flex-direction:column!important;align-items:stretch!important;gap:4px!important;padding:0 16px 16px}
+.card-info-social-icons .social-icon{display:flex!important;align-items:center!important;gap:8px!important;padding:6px 12px!important;border-radius:6px!important;transition:background .2s;width:auto!important;height:auto!important;font-size:14px!important}
+.card-info-social-icons .social-icon:hover{background:var(--btn-bg)!important;color:var(--btn-color)!important}
+.card-info-social-icons .social-icon i{font-size:20px!important;width:24px!important;text-align:center!important}
+.card-info-social-icons .social-icon::after{content:attr(title);font-size:14px}
+.card-info-social-icons .social-icon[title*="QQ"]{pointer-events:none;opacity:.7}
+.card-info-social-icons .social-icon[title*="QQ"]::after{content:"1778357215@qq.com"}
+</style>'
