@@ -1,0 +1,133 @@
+# Butterfly 主题配置
+# 完整文档: https://butterfly.js.org/
+
+# --- 导航栏 ---
+nav:
+  display_title: true
+  display_post_title: true
+  fixed: true
+
+menu:
+  首页: / || fas fa-home
+  归档: /archives/ || fas fa-archive
+  标签: /tags/ || fas fa-tags
+  分类: /categories/ || fas fa-folder-open
+  关于: /about/ || fas fa-heart
+
+# --- 社交链接 ---
+social:
+  fab fa-github: https://github.com/Fogjw || Github || '#24292e'
+
+# --- 代码块 ---
+code_blocks:
+  theme: light
+  macStyle: false
+  copy: true
+  language: true
+  shrink: false
+
+# --- 头像 ---
+avatar:
+  img:
+  effect: false
+
+# --- 首页横幅 ---
+disable_top_img: false
+index_img:
+default_top_img:
+subtitle:
+  enable: true
+  effect: true
+  source: false
+  sub:
+    - 拨云见码，以笔为舟
+
+# --- 文章列表布局 ---
+index_layout: 3
+index_post_content:
+  method: 3
+  length: 500
+
+# --- 文章设置 ---
+toc:
+  post: true
+  page: false
+  number: true
+  expand: false
+  style_simple: false
+
+post_copyright:
+  enable: true
+  license: CC BY-NC-SA 4.0
+  license_url: https://creativecommons.org/licenses/by-nc-sa/4.0/
+
+post_pagination: 1
+
+# --- 页脚 ---
+footer:
+  owner:
+    enable: true
+    since: 2026
+  copyright:
+    enable: true
+    version: true
+
+# --- 侧边栏 ---
+aside:
+  enable: true
+  hide: false
+  position: right
+  card_author:
+    enable: true
+    description: 一个写代码的人
+    button:
+      enable: true
+      icon: fab fa-github
+      text: Follow Me
+      link: https://github.com/Fogjw
+  card_announcement:
+    enable: true
+    content: 欢迎来到我的博客 🎉
+  card_recent_post:
+    enable: true
+    limit: 5
+  card_categories:
+    enable: true
+    limit: 8
+  card_tags:
+    enable: true
+    limit: 0
+
+# --- 页脚社交 ---
+footer_social:
+  enable: true
+
+# --- 网站验证 / 统计 ---
+# 不配置，后续需要再加
+
+# --- 评论系统 ---
+# 暂不配置，后续需要再加
+
+# --- 右侧工具栏 ---
+rightside:
+  open_text: 💬
+  readmode: true
+  translate: false
+  nightmode: true
+  aside: true
+  fontscale: false
+  hide: false
+
+# --- 搜索 ---
+local_search:
+  enable: true
+  preload: true
+  CDN:
+
+# --- 数学公式 ---
+mathjax:
+  enable: false
+  per_page: false
+katex:
+  enable: false
+  per_page: false
