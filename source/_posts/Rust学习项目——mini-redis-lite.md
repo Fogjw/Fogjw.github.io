@@ -97,7 +97,7 @@ fn append_to_aof(&self, line: &str) -> Result<(), StorageError> {
 
 | 类型       | 前缀                  | 格式            | 示例           | 场景         |
 | ---------- | --------------------- | --------------- | -------------- | ------------ |
-| 成功确认   | `+`  |     `+OK\r\n`         | `+OK\r\n`            | SET/DEL 成功 |
+| 成功确认   | `+`  |     `+OK\r\n`         | `+OK\r\n`            | SET/DEL/CLEAR 成功 |
 | 批量字符串 | `$`    |      `$len\r\ndata\r\n` | `$5\r\nAlice\r\n` | GET 返回值     |
 | 空值       | `$`    |     `$-1\r\n`        | `$-1\r\n`             | 键不存在       |
 | 错误       | `-`   |     `-msg\r\n`        | `-ERR not found\r\n` | 命令解析失败 |
