@@ -29,7 +29,8 @@ code_blocks:
   language: true
   shrink: false
 
-# --- 头像 ---
+# --- 头像 & 图标 ---
+favicon: /img/avatar.png
 avatar:
   img: /img/avatar.png
   effect: false
