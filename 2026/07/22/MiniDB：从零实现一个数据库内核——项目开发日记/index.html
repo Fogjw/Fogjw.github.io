@@ -1,0 +1,259 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>MiniDB：从零实现一个数据库内核——项目开发日记 | Fogjw 的博客</title><meta name="author" content="Fogjw"><meta name="copyright" content="Fogjw"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="此文章用于记录在开发MiniDB项目中碰到的问题及解决方法，不懂的点和学习后的总结等诸多碎碎念。 项目介绍 定位：从零实现一个轻量级关系数据库，具备完整的数据库内核能力——缓冲池、索引、事务、恢复、SQL 支持。  目标：在项目开发完成时，此项目应具备能力：    支持部分SQL语句（SELECT&#x2F;INSERT&#x2F;CREATE TABLE&#x2F;DELETE） 支持并发多线程">
+<meta property="og:type" content="article">
+<meta property="og:title" content="MiniDB：从零实现一个数据库内核——项目开发日记">
+<meta property="og:url" content="https://fogjw.github.io/2026/07/22/MiniDB%EF%BC%9A%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AA%E6%95%B0%E6%8D%AE%E5%BA%93%E5%86%85%E6%A0%B8%E2%80%94%E2%80%94%E9%A1%B9%E7%9B%AE%E5%BC%80%E5%8F%91%E6%97%A5%E8%AE%B0/index.html">
+<meta property="og:site_name" content="Fogjw 的博客">
+<meta property="og:description" content="此文章用于记录在开发MiniDB项目中碰到的问题及解决方法，不懂的点和学习后的总结等诸多碎碎念。 项目介绍 定位：从零实现一个轻量级关系数据库，具备完整的数据库内核能力——缓冲池、索引、事务、恢复、SQL 支持。  目标：在项目开发完成时，此项目应具备能力：    支持部分SQL语句（SELECT&#x2F;INSERT&#x2F;CREATE TABLE&#x2F;DELETE） 支持并发多线程">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://fogjw.github.io/img/cover/cg_um16_0101.png">
+<meta property="article:published_time" content="2026-07-22T10:19:45.000Z">
+<meta property="article:modified_time" content="2026-07-22T14:58:51.071Z">
+<meta property="article:author" content="Fogjw">
+<meta property="article:tag" content="Cpp">
+<meta property="article:tag" content="反思总结">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://fogjw.github.io/img/cover/cg_um16_0101.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "MiniDB：从零实现一个数据库内核——项目开发日记",
+  "url": "https://fogjw.github.io/2026/07/22/MiniDB%EF%BC%9A%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AA%E6%95%B0%E6%8D%AE%E5%BA%93%E5%86%85%E6%A0%B8%E2%80%94%E2%80%94%E9%A1%B9%E7%9B%AE%E5%BC%80%E5%8F%91%E6%97%A5%E8%AE%B0/",
+  "image": "https://fogjw.github.io/img/cover/cg_um16_0101.png",
+  "datePublished": "2026-07-22T10:19:45.000Z",
+  "dateModified": "2026-07-22T14:58:51.071Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "Fogjw",
+      "url": "https://fogjw.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="/img/avatar.png"><link rel="canonical" href="https://fogjw.github.io/2026/07/22/MiniDB%EF%BC%9A%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AA%E6%95%B0%E6%8D%AE%E5%BA%93%E5%86%85%E6%A0%B8%E2%80%94%E2%80%94%E9%A1%B9%E7%9B%AE%E5%BC%80%E5%8F%91%E6%97%A5%E8%AE%B0/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=5.6.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        const data = { value }
+
+        if (ttl != null) {
+          data.expiry = Date.now() + ttl * 86400000
+        }
+
+        localStorage.setItem(key, JSON.stringify(data))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false,"highlightFullpage":false,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'MiniDB：从零实现一个数据库内核——项目开发日记',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><style>#page-header:not(.full_page){background-position:center top -150px!important} .card-info-social-icons{flex-direction:column!important;align-items:stretch!important;gap:4px!important;padding:0 16px 16px} .card-info-social-icons .social-icon{display:flex!important;align-items:center!important;gap:8px!important;padding:6px 12px!important;border-radius:6px!important;transition:background .2s;width:auto!important;height:auto!important;font-size:14px!important} .card-info-social-icons .social-icon:hover{background:var(--btn-bg)!important;color:var(--btn-color)!important} .card-info-social-icons .social-icon i{font-size:20px!important;width:24px!important;text-align:center!important} .card-info-social-icons .social-icon::after{content:attr(title);font-size:14px} .card-info-social-icons .social-icon[title*="QQ"]{pointer-events:none;opacity:.7} .card-info-social-icons .social-icon[title*="QQ"]::after{content:"1778357215@qq.com"} </style><meta name="generator" content="Hexo 8.1.2"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(/img/BG014A.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="/img/avatar.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">5</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">4</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">4</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fas fa-link"></i><span> 友链</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> 关于</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg fixed" id="page-header" style="background-image: url(/img/cover/cg_um16_0101.png);"><nav id="nav"><span id="blog-info"><a class="nav-site-title" href="/"><span class="site-name">Fogjw 的博客</span></a><a class="nav-page-title" href="/"><span class="site-name">MiniDB：从零实现一个数据库内核——项目开发日记</span><span class="site-name"><i class="fa-solid fa-circle-arrow-left"></i><span>  返回首页</span></span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fas fa-link"></i><span> 友链</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> 关于</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">MiniDB：从零实现一个数据库内核——项目开发日记</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-07-22T10:19:45.000Z" title="发表于 2026-07-22 18:19:45">2026-07-22</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-07-22T14:58:51.071Z" title="更新于 2026-07-22 22:58:51">2026-07-22</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/%E9%A1%B9%E7%9B%AE%E6%97%A5%E8%AE%B0/">项目日记</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><p>此文章用于记录在开发MiniDB项目中碰到的问题及解决方法，不懂的点和学习后的总结等诸多碎碎念。</p>
+<h1 id="项目介绍"><a href="#项目介绍" class="headerlink" title="项目介绍"></a>项目介绍</h1><ol>
+<li><p>定位：从零实现一个轻量级关系数据库，具备完整的数据库内核能力——缓冲池、索引、事务、恢复、SQL 支持。</p>
+</li>
+<li><p>目标：在项目开发完成时，此项目应具备能力：</p>
+</li>
+</ol>
+<ul>
+<li>支持部分SQL语句（SELECT&#x2F;INSERT&#x2F;CREATE TABLE&#x2F;DELETE）</li>
+<li>支持并发多线程读写，MVCC 快照分离</li>
+<li>WAL 预写日志 + ARIES 崩溃恢复</li>
+<li>有 Web 管理面板（执行 SQL、看引擎监控）</li>
+</ul>
+<ol start="3">
+<li>技术栈：</li>
+</ol>
+<ul>
+<li>C++17：模板、智能指针、RAII、移动语义</li>
+<li>并发编程：std::thread、std::shared_mutex、std::atomic、std::condition_variable</li>
+<li>存储引擎：B+Tree、Buffer Pool、Slotted Page、Clock-Sweep 淘汰</li>
+<li>事务与恢复：MVCC、Lock Manager、ARIES WAL</li>
+<li>网络通信：Unix Socket、Protocol Buffers</li>
+<li>Web 开发：Go net&#x2F;http、React + TypeScript</li>
+<li>Linux 系统调用：open &#x2F; pread &#x2F; pwrite &#x2F; fsync</li>
+</ul>
+<ol start="4">
+<li>项目地址：暂时私有</li>
+</ol>
+<h1 id="2026-07-22"><a href="#2026-07-22" class="headerlink" title="2026&#x2F;07&#x2F;22"></a>2026&#x2F;07&#x2F;22</h1><p>目前已经开发完成了两个模块（<code>page</code>和<code>buffer</code>），这里做一下总结</p>
+<h2 id="page-模块"><a href="#page-模块" class="headerlink" title="page 模块"></a>page 模块</h2><h3 id="设计思路"><a href="#设计思路" class="headerlink" title="设计思路"></a>设计思路</h3><p>考虑到持久化记录，键值存储是一定要存入磁盘的，也会需要从磁盘中读取，而我们都知道，磁盘的读写速度，尤其是随机读写速度，与内存读写相比差别过大，为了减少磁盘对性能的阻碍，必须在这方面下功夫。</p>
+<p>考虑到操作系统与内存交互的单位是<strong>页</strong>，因此考虑设计一种数据结构存储数据<code>page</code>，使得每次从磁盘中读取一个<code>page</code>后，一个<code>page</code>刚好分配一个内存页，使得分配到的OS页没有外部碎片浪费，同时减少磁盘I&#x2F;O次数，写操作同理。同时根据时空局限性，以页为单位读到内存，后续访问的数据也可能是页中的，增加了缓存命中率。因此本项目中设计与磁盘交互的存储单位为page，每个page占4096字节。</p>
+<p>而对于一个<code>page</code>，读取到内存之后，对于其中的4096字节空间，这里做了一些设想，大致如下图</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">低地址                                                                                              高地址</span><br><span class="line">|---------------|---------------------------------------------------------------------------------------|</span><br><span class="line">| PageHead(24B) | Record(?B) | Record(?B) | Record(?B) | -&gt; 剩余空间 &lt;- | Slot(4B) | Slot(4B) | Slot(4B) |</span><br><span class="line">|---------------|---------------------------------------------------------------------------------------|</span><br><span class="line">|   页头(24B)   |                               可用空间(4072B)                                          |  </span><br></pre></td></tr></table></figure>
+
+<p>Slot存放指向对应的数据record的指针（即相对可用空间最低地址的偏移量）和数据长度。<br>页头存放当前页的一些信息，如页id，剩余可用空间，slot数量等</p>
+<h3 id="遇到的问题"><a href="#遇到的问题" class="headerlink" title="遇到的问题"></a>遇到的问题</h3><p>在设想中，数据的长度是不一的，也正因此设计了Slot定长结构来便于定位数据，取得slot中的数据偏移和长度就能进行随机访问。因此Slot必须能通过Slot的id快速定位，有两种方式实现。</p>
+<ol>
+<li>SlotId存入Slot中，由于Slot定长，所以支持从可用空间最高地址向下遍历</li>
+<li>Slot从可用空间最高地址紧密排列，从占据最高地址的Slot向低地址依次id为0，1，2…，不显式存储，靠位置计算</li>
+</ol>
+<p>考虑如果要删除一条数据，对于数据部分，两种方式都一样，即要么每次删除都让删除数据的高地址方向的数据移动覆盖以消除内部碎片，要么定期调用整理方法消除内部碎片。但是对于Slot部分，方式1可以将剩余空间端的Slot移动覆盖被删除的数据对应Slot，消除Slot的内部碎片，如下图</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">                         删除</span><br><span class="line">低地址                     ↓       高地址</span><br><span class="line">---------------------------------------</span><br><span class="line">|剩余空间|Slot|Slot|Slot|Slot|Slot|Slot|</span><br><span class="line">---------------------------------------</span><br><span class="line">           ↓              ↑  </span><br><span class="line">            → → → → → → →  </span><br><span class="line">               移动覆盖</span><br></pre></td></tr></table></figure>
+<p>而方式2由于SlotId由位置推断，如果移动则会导致混乱，因此只回收数据部分，对应Slot仅将字段重置不指向任何数据，这会导致产生一部分的内部碎片。</p>
+<p>经过权衡，选择<strong>方式2</strong>实现，理由如下</p>
+<ol>
+<li>方式2的Slot实现仅4B（方式1需要加id字段，总计6B），虽然会产生内部碎片，但每次删除数据也只会产生4B的内部碎片，开销并不大</li>
+<li>方式2的Slot实现使根据SlotId获取Slot的效率高得多，可以直接计算出偏移量得到Slot指针，查找时间为<strong>常数级</strong>，而方式1每次查找都需要遍历，时间开销太大</li>
+</ol>
+<h2 id="Buffer-模块"><a href="#Buffer-模块" class="headerlink" title="Buffer 模块"></a>Buffer 模块</h2><p>这个模块主要是用于完成<strong>缓存池</strong>，考虑数据库数据大时，频繁访问数据库必然出现内存占用高的情况，此时操作系统会进行换页，但操作系统的换页开销不可控，会换到磁盘中不确定的位置，因此缺页异常换回页时开销也不稳定，且操作系统没有脏页概念，脏页换出后需要写入数据库文件需要再换回内存，另外也难以统计命中率（以为在缓存中，但实际上被换到了磁盘上）。</p>
+<p>缓存池限制读到内存中的页数量，只在页不被使用时换出，且换出时将脏页写回文件，能对内存中的页做精细化策略控制，缓存池自行控制留在内存中的页。</p>
+<h3 id="设计思路-1"><a href="#设计思路-1" class="headerlink" title="设计思路"></a>设计思路</h3><p>考虑到这是一个多线程并发访问的数据结构，缓存池必须设计原子操作和互斥锁。考虑到读操作应该允许同时访问，缓存池的锁均为读写锁（在<strong>Linux</strong>上，<code>std::shared_mutex</code>是偏向<strong>写者</strong>的读写锁）。缓存池的换页策略设计为Clock-sweep，即当缓存页命中时，设置一个标记，需要换页时循环遍历数组，寻找符合换出条件的页，若符合但有标记，则去掉标记继续循环遍历直到找到符合条件且无标记的页。</p>
+<p>缓存池将页封装为一个新的数据结构<code>Frame</code>，增加是否为脏页、Clock-sweep标记、正在使用页的线程数、每个页自己的读写锁等属性，同时用<code>std::vector</code>容器存放Frame，使用<code>std::unordered_map</code>存放页id到<code>Frame</code>在<code>vector</code>容器中的索引的映射，同时用一把<code>shared_mutex</code>保护这个映射表。</p>
+<h3 id="遇到的问题-1"><a href="#遇到的问题-1" class="headerlink" title="遇到的问题"></a>遇到的问题</h3><p>如果需要从磁盘中加载一页到内存，或新建一个空白页，都需要从<code>Frame</code>数组里取出一个<code>Frame</code>（根据策略），若为脏页就写入磁盘，然后从pid-frame_idx映射表中删掉映射，返回这个空闲下来的frame_idx来存放内存。但是初始化未加载的Frame中的pid为0，如果直接按<code>Frame</code>中的pid删掉映射，可能此时有pid为0的页加载在其他的<code>Frame</code>，导致误删实际上在内存中的映射。因此在淘汰一页返回空闲索引方法中加入了对初始页的判断逻辑。同时学到了一个C++的细节：</p>
+<p><code>Frame</code>的<code>Page</code>属性中的<code>PageHead</code>的<code>pid</code>并没有显式初始化为0，但是在调用<code>vector&lt;Frame&gt; frames_(pool_size_)</code>构造时，依然会把pid初始化为0，而不会是垃圾值。这种情况叫<strong>值初始化</strong>。因为<code>Frame</code>作为自定义结构体没有用户自定义的构造函数时，编译器会默认生成，先将整个对象初始化为0，再调用默认构造，将显式初始化的字段进行初始化。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://fogjw.github.io">Fogjw</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://fogjw.github.io/2026/07/22/MiniDB%EF%BC%9A%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AA%E6%95%B0%E6%8D%AE%E5%BA%93%E5%86%85%E6%A0%B8%E2%80%94%E2%80%94%E9%A1%B9%E7%9B%AE%E5%BC%80%E5%8F%91%E6%97%A5%E8%AE%B0/">https://fogjw.github.io/2026/07/22/MiniDB%EF%BC%9A%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AA%E6%95%B0%E6%8D%AE%E5%BA%93%E5%86%85%E6%A0%B8%E2%80%94%E2%80%94%E9%A1%B9%E7%9B%AE%E5%BC%80%E5%8F%91%E6%97%A5%E8%AE%B0/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://fogjw.github.io" target="_blank">Fogjw 的博客</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/Cpp/">Cpp</a><a class="post-meta__tags" href="/tags/%E5%8F%8D%E6%80%9D%E6%80%BB%E7%BB%93/">反思总结</a></div><div class="post-share"><div class="social-share" data-image="/img/cover/cg_um16_0101.png" data-sites="facebook,x,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related full-width" href="/2026/07/20/Cpp%E5%B9%B6%E5%8F%91%E5%9F%BA%E7%A1%80/" title="Cpp并发基础"><img class="cover" src="/img/cover/CG_SR05_0101.png" onerror="onerror=null;src='/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">Cpp并发基础</div></div><div class="info-2"><div class="info-item-1">线程的创建和使用std::threadCpp线程使用std::thread类创建，创建之后立即运行分配的函数任务。使用std::thread需要引入头文件#include &lt;thread&gt;。 1234567891011void worker() &#123;    // 任务&#125;int main() &#123;    std::thread t1(worker); // 异步运行    std::thread t2(worker); // 异步运行    t1.join();    t2.join();&#125;  如代码所示，在t1和t2创建后即运行传入的函数任务，之后调用join使主线程等待t1和t2运行结束。当worker需要传入参数时，如 1234void worker(int id, string&amp; name) &#123;    std::cout &lt;&lt; &quot;id: &quot; &lt;&lt; id;    std::cout &lt;&lt; &quot;, name: &quot; &lt;&lt; name...</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/2026/07/20/Cpp%E5%B9%B6%E5%8F%91%E5%9F%BA%E7%A1%80/" title="Cpp并发基础"><img class="cover" src="/img/cover/CG_SR05_0101.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-20</div><div class="info-item-2">Cpp并发基础</div></div><div class="info-2"><div class="info-item-1">线程的创建和使用std::threadCpp线程使用std::thread类创建，创建之后立即运行分配的函数任务。使用std::thread需要引入头文件#include &lt;thread&gt;。 1234567891011void worker() &#123;    // 任务&#125;int main() &#123;    std::thread t1(worker); // 异步运行    std::thread t2(worker); // 异步运行    t1.join();    t2.join();&#125;  如代码所示，在t1和t2创建后即运行传入的函数任务，之后调用join使主线程等待t1和t2运行结束。当worker需要传入参数时，如 1234void worker(int id, string&amp; name) &#123;    std::cout &lt;&lt; &quot;id: &quot; &lt;&lt; id;    std::cout &lt;&lt; &quot;, name: &quot; &lt;&lt; name...</div></div></div></a><a class="pagination-related" href="/2026/07/17/Rust%E5%AD%A6%E4%B9%A0%E9%A1%B9%E7%9B%AE%E2%80%94%E2%80%94mini-redis-lite/" title="Rust学习项目——mini-redis-lite"><img class="cover" src="/img/cover/cg_sk07_0101.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-17</div><div class="info-item-2">Rust学习项目——mini-redis-lite</div></div><div class="info-2"><div class="info-item-1">Rust学习项目 ———— mini-redis-lite项目地址项目仓库地址：mini-redis-lite 前言笔者的一门有关Rust的选课要求自行选题写一个项目，本着多学一门语言是有益之举的想法，我决定不全盘Vibe Coding，在agent的指导下建立项目。 出于agent的建议，选择了复刻redis的一部分功能，即存，取，删，具体见项目仓库readme。 我学到了什么对于这个项目的核心功能本身，即存取和删除键值对的实现实际上是毫不费力的，重要的是这个项目与操作系统的相关知识联系在了一起，让我第一次切实地在编程中考虑到操作系统。 1. 同步原语为了实现多线程并发访问键值对数据，必须保证临界区的互斥访问，即同一时间，只有一个客户端线程能读写键值对，在本项目中，引入了Rust的同步原语模块 sync 中的原子引用计数 Arc 和互斥锁 Mutex 来解决这个问题。    内存存储MemoryStorage结构体定义： 1234#[derive(Clone)]pub struct MemoryStorage &#123;    data: Arc&lt;Mutex&lt;Ha...</div></div></div></a><a class="pagination-related" href="/2026/07/19/Cpp%E6%99%BA%E8%83%BD%E6%8C%87%E9%92%88%E7%9A%84%E7%94%A8%E6%B3%95%E5%92%8C%E5%8C%BA%E5%88%AB/" title="Cpp智能指针的用法和区别"><img class="cover" src="/img/cover/cg_km11_0101.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-19</div><div class="info-item-2">Cpp智能指针的用法和区别</div></div><div class="info-2"><div class="info-item-1">Cpp的智能指针智能指针是RAII（Resource Acquisition Is Initialization，资源获取即初始化）思想的的应用，智能指针在构造函数获取资源（new），在析构函数释放资源（delete），让动态内存管理自动化和异常安全。 为什么需要智能指针？当资源被分配（new）后没有回收（delete）会导致资源泄露，而资源被重复回收（delete）会导致未定义行为（对野指针进行delete操作）。将资源分配和回收封装进构造函数和析构函数，在对象结束生命周期时自动回收资源可以避免产生这样的问题。  tips：不管是delete，还是free，底层都保证了空指针安全，对空指针进行资源回收是安全的。  Cpp智能指针有哪些？Cpp智能指针有三种，分别为unique_ptr、shared_ptr和weak_ptr（auto_ptr在C++17被删除）。使用智能指针需要引入头文件#include &lt;memory&gt;。 std::unique_ptrunique_ptr的特点是唯一所有权，同一时间只能有一个unique_ptr拥有同一个对象，且不能进行拷贝，只能...</div></div></div></a></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="/img/avatar.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info-name">Fogjw</div><div class="author-info-description">一个写代码的人</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">5</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">4</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">4</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/Fogjw"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/Fogjw" target="_blank" title="GitHub"><i class="fab fa-github" style="color: #24292e;"></i></a><a class="social-icon" href="https://x.com/Foggggg0924" target="_blank" title="X"><i class="fab fa-x-twitter" style="color: #000000;"></i></a><a class="social-icon" href="javascript:void(0)" target="_blank" title="QQ"><i class="fas fa-envelope" style="color: #4a7dbe;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">欢迎来到我的博客 🎉</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E9%A1%B9%E7%9B%AE%E4%BB%8B%E7%BB%8D"><span class="toc-number">1.</span> <span class="toc-text">项目介绍</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#2026-07-22"><span class="toc-number">2.</span> <span class="toc-text">2026&#x2F;07&#x2F;22</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#page-%E6%A8%A1%E5%9D%97"><span class="toc-number">2.1.</span> <span class="toc-text">page 模块</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%AE%BE%E8%AE%A1%E6%80%9D%E8%B7%AF"><span class="toc-number">2.1.1.</span> <span class="toc-text">设计思路</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%81%87%E5%88%B0%E7%9A%84%E9%97%AE%E9%A2%98"><span class="toc-number">2.1.2.</span> <span class="toc-text">遇到的问题</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Buffer-%E6%A8%A1%E5%9D%97"><span class="toc-number">2.2.</span> <span class="toc-text">Buffer 模块</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%AE%BE%E8%AE%A1%E6%80%9D%E8%B7%AF-1"><span class="toc-number">2.2.1.</span> <span class="toc-text">设计思路</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%81%87%E5%88%B0%E7%9A%84%E9%97%AE%E9%A2%98-1"><span class="toc-number">2.2.2.</span> <span class="toc-text">遇到的问题</span></a></li></ol></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/2026/07/22/MiniDB%EF%BC%9A%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AA%E6%95%B0%E6%8D%AE%E5%BA%93%E5%86%85%E6%A0%B8%E2%80%94%E2%80%94%E9%A1%B9%E7%9B%AE%E5%BC%80%E5%8F%91%E6%97%A5%E8%AE%B0/" title="MiniDB：从零实现一个数据库内核——项目开发日记"><img src="/img/cover/cg_um16_0101.png" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="MiniDB：从零实现一个数据库内核——项目开发日记"/></a><div class="content"><a class="title" href="/2026/07/22/MiniDB%EF%BC%9A%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AA%E6%95%B0%E6%8D%AE%E5%BA%93%E5%86%85%E6%A0%B8%E2%80%94%E2%80%94%E9%A1%B9%E7%9B%AE%E5%BC%80%E5%8F%91%E6%97%A5%E8%AE%B0/" title="MiniDB：从零实现一个数据库内核——项目开发日记">MiniDB：从零实现一个数据库内核——项目开发日记</a><time datetime="2026-07-22T10:19:45.000Z" title="发表于 2026-07-22 18:19:45">2026-07-22</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/20/Cpp%E5%B9%B6%E5%8F%91%E5%9F%BA%E7%A1%80/" title="Cpp并发基础"><img src="/img/cover/CG_SR05_0101.png" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Cpp并发基础"/></a><div class="content"><a class="title" href="/2026/07/20/Cpp%E5%B9%B6%E5%8F%91%E5%9F%BA%E7%A1%80/" title="Cpp并发基础">Cpp并发基础</a><time datetime="2026-07-20T11:38:33.000Z" title="发表于 2026-07-20 19:38:33">2026-07-20</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/19/Cpp%E6%99%BA%E8%83%BD%E6%8C%87%E9%92%88%E7%9A%84%E7%94%A8%E6%B3%95%E5%92%8C%E5%8C%BA%E5%88%AB/" title="Cpp智能指针的用法和区别"><img src="/img/cover/cg_km11_0101.png" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Cpp智能指针的用法和区别"/></a><div class="content"><a class="title" href="/2026/07/19/Cpp%E6%99%BA%E8%83%BD%E6%8C%87%E9%92%88%E7%9A%84%E7%94%A8%E6%B3%95%E5%92%8C%E5%8C%BA%E5%88%AB/" title="Cpp智能指针的用法和区别">Cpp智能指针的用法和区别</a><time datetime="2026-07-19T13:08:00.000Z" title="发表于 2026-07-19 21:08:00">2026-07-19</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/17/Rust%E5%AD%A6%E4%B9%A0%E9%A1%B9%E7%9B%AE%E2%80%94%E2%80%94mini-redis-lite/" title="Rust学习项目——mini-redis-lite"><img src="/img/cover/cg_sk07_0101.png" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Rust学习项目——mini-redis-lite"/></a><div class="content"><a class="title" href="/2026/07/17/Rust%E5%AD%A6%E4%B9%A0%E9%A1%B9%E7%9B%AE%E2%80%94%E2%80%94mini-redis-lite/" title="Rust学习项目——mini-redis-lite">Rust学习项目——mini-redis-lite</a><time datetime="2026-07-17T10:23:55.000Z" title="发表于 2026-07-17 18:23:55">2026-07-17</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/17/hello-world/" title="Hello World"><img src="/img/cover/cg_ao01_0101.png" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Hello World"/></a><div class="content"><a class="title" href="/2026/07/17/hello-world/" title="Hello World">Hello World</a><time datetime="2026-07-17T04:30:00.000Z" title="发表于 2026-07-17 12:30:00">2026-07-17</time></div></div></div></div></div></div></main><footer id="footer"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2026 By Fogjw</span><span class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo 8.1.2</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.6.0</a></span></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.6.0"></script><script src="/js/main.js?v=5.6.0"></script><div class="js-pjax"></div><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>
