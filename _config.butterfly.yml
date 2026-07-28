@@ -111,7 +111,20 @@ footer_social:
 # 不配置，后续需要再加
 
 # --- 评论系统 ---
-# 暂不配置，后续需要再加
+comments:
+  use: giscus
+  text: true
+
+giscus:
+  repo: Fogjw/Fogjw.github.io
+  repo_id: R_kgDOTbKKaw
+  category_id: DIC_kwDOTbKKa84DCJ4w
+  light_theme: light
+  dark_theme: dark
+  option:
+    mapping: pathname
+    reactionsEnabled: 1
+    lang: zh-CN
 
 # --- 右侧工具栏 ---
 rightside:
