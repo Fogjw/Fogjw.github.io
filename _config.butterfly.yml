@@ -124,7 +124,10 @@ giscus:
   option:
     mapping: pathname
     reactionsEnabled: 1
+    emitMetadata: 0
+    inputPosition: bottom
     lang: zh-CN
+    loading: lazy
 
 # --- 右侧工具栏 ---
 rightside:
