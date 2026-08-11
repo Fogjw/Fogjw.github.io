@@ -1,0 +1,325 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>MiniDB：从零实现一个数据库内核——项目开发日记(3) | Fogjw 的博客</title><meta name="author" content="Fogjw"><meta name="copyright" content="Fogjw"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="2026&#x2F;08&#x2F;10这段时间完成了Lock Manager和Table Manager，这些都是MVCC的前置。 Lock Manager概念解析Lock Manager的作用是管理行锁，用于保护数据库表中的一行数据在被当前事务读写时不被其他事务读写，不过读数据其实后面是要通过MVCC的版本链读取的，所以实际的作用是防止当前事务修改一行数据时不会被其他事务同时修改。 在当前数据">
+<meta property="og:type" content="article">
+<meta property="og:title" content="MiniDB：从零实现一个数据库内核——项目开发日记(3)">
+<meta property="og:url" content="https://fogjw.github.io/2026/08/10/MiniDB%EF%BC%9A%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AA%E6%95%B0%E6%8D%AE%E5%BA%93%E5%86%85%E6%A0%B8%E2%80%94%E2%80%94%E9%A1%B9%E7%9B%AE%E5%BC%80%E5%8F%91%E6%97%A5%E8%AE%B0-3/index.html">
+<meta property="og:site_name" content="Fogjw 的博客">
+<meta property="og:description" content="2026&#x2F;08&#x2F;10这段时间完成了Lock Manager和Table Manager，这些都是MVCC的前置。 Lock Manager概念解析Lock Manager的作用是管理行锁，用于保护数据库表中的一行数据在被当前事务读写时不被其他事务读写，不过读数据其实后面是要通过MVCC的版本链读取的，所以实际的作用是防止当前事务修改一行数据时不会被其他事务同时修改。 在当前数据">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://fogjw.github.io/img/cover/CG_SP04_0101.png">
+<meta property="article:published_time" content="2026-08-10T13:31:23.000Z">
+<meta property="article:modified_time" content="2026-08-11T10:49:47.797Z">
+<meta property="article:author" content="Fogjw">
+<meta property="article:tag" content="Cpp">
+<meta property="article:tag" content="反思总结">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://fogjw.github.io/img/cover/CG_SP04_0101.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "MiniDB：从零实现一个数据库内核——项目开发日记(3)",
+  "url": "https://fogjw.github.io/2026/08/10/MiniDB%EF%BC%9A%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AA%E6%95%B0%E6%8D%AE%E5%BA%93%E5%86%85%E6%A0%B8%E2%80%94%E2%80%94%E9%A1%B9%E7%9B%AE%E5%BC%80%E5%8F%91%E6%97%A5%E8%AE%B0-3/",
+  "image": "https://fogjw.github.io/img/cover/CG_SP04_0101.png",
+  "datePublished": "2026-08-10T13:31:23.000Z",
+  "dateModified": "2026-08-11T10:49:47.797Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "Fogjw",
+      "url": "https://fogjw.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="/img/avatar.png"><link rel="canonical" href="https://fogjw.github.io/2026/08/10/MiniDB%EF%BC%9A%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AA%E6%95%B0%E6%8D%AE%E5%BA%93%E5%86%85%E6%A0%B8%E2%80%94%E2%80%94%E9%A1%B9%E7%9B%AE%E5%BC%80%E5%8F%91%E6%97%A5%E8%AE%B0-3/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=5.6.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        const data = { value }
+
+        if (ttl != null) {
+          data.expiry = Date.now() + ttl * 86400000
+        }
+
+        localStorage.setItem(key, JSON.stringify(data))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false,"highlightFullpage":false,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'MiniDB：从零实现一个数据库内核——项目开发日记(3)',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><style>#page-header:not(.full_page){background-position:center top -150px!important} .card-info-social-icons{flex-direction:column!important;align-items:stretch!important;gap:4px!important;padding:0 16px 16px} .card-info-social-icons .social-icon{display:flex!important;align-items:center!important;gap:8px!important;padding:6px 12px!important;border-radius:6px!important;transition:background .2s;width:auto!important;height:auto!important;font-size:14px!important} .card-info-social-icons .social-icon:hover{background:var(--btn-bg)!important;color:var(--btn-color)!important} .card-info-social-icons .social-icon i{font-size:20px!important;width:24px!important;text-align:center!important} .card-info-social-icons .social-icon::after{content:attr(title);font-size:14px} .card-info-social-icons .social-icon[title*="QQ"]{pointer-events:none;opacity:.7} .card-info-social-icons .social-icon[title*="QQ"]::after{content:"1778357215@qq.com"} </style><meta name="generator" content="Hexo 8.1.2"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(/img/BG014A.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="/img/avatar.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">9</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">5</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">4</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fas fa-link"></i><span> 友链</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> 关于</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg fixed" id="page-header" style="background-image: url(/img/cover/CG_SP04_0101.png);"><nav id="nav"><span id="blog-info"><a class="nav-site-title" href="/"><span class="site-name">Fogjw 的博客</span></a><a class="nav-page-title" href="/"><span class="site-name">MiniDB：从零实现一个数据库内核——项目开发日记(3)</span><span class="site-name"><i class="fa-solid fa-circle-arrow-left"></i><span>  返回首页</span></span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fas fa-link"></i><span> 友链</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> 关于</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">MiniDB：从零实现一个数据库内核——项目开发日记(3)</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-08-10T13:31:23.000Z" title="发表于 2026-08-10 21:31:23">2026-08-10</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-08-11T10:49:47.797Z" title="更新于 2026-08-11 18:49:47">2026-08-11</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/%E9%A1%B9%E7%9B%AE%E6%97%A5%E8%AE%B0/">项目日记</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><h1 id="2026-08-10"><a href="#2026-08-10" class="headerlink" title="2026&#x2F;08&#x2F;10"></a>2026&#x2F;08&#x2F;10</h1><p>这段时间完成了<strong>Lock Manager</strong>和<strong>Table Manager</strong>，这些都是<strong>MVCC</strong>的前置。</p>
+<h2 id="Lock-Manager"><a href="#Lock-Manager" class="headerlink" title="Lock Manager"></a><strong>Lock Manager</strong></h2><h3 id="概念解析"><a href="#概念解析" class="headerlink" title="概念解析"></a>概念解析</h3><p><strong>Lock Manager</strong>的作用是管理行锁，用于保护数据库表中的一行数据在被当前事务读写时不被其他事务读写，不过读数据其实后面是要通过<strong>MVCC</strong>的版本链读取的，所以实际的作用是防止当前事务修改一行数据时不会被其他事务同时修改。</p>
+<p>在当前数据库的设计中，关于B+树的key-value中的key和value，key是一个表中唯一的索引，即主键id，而value是该主键对应的一行数据，比如一个账单表Order，key就是Order_id，不可重复，而value就是形如”user | item_id | price | order_time”的字符串数据，因此增删改查都是以一行数据为单位，将字符串分析为行数据，修改部分项或全部项再存入B+树，具体的解析在于后面需要做的<strong>sql</strong>模块，现在不多赘述。</p>
+<p>那么我已经实现了B+树的<strong>Latch Crabbing</strong>，能保证多线程下对B+树的增删查改的安全性，那么为什么还需要行锁呢？</p>
+<p>我们必须清楚的是，一个事务是由多个B+树操作组成的，而B+树的<strong>Latch Crabbing</strong>只能保证单个B+树操作的原子性，而不能保证事务的原子性。</p>
+<p>比如看下面的sql语句：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">UPDATE accounts SET balance = balance - 100 WHERE id = 1;</span><br></pre></td></tr></table></figure>
+<p>假设这个事务只有这一句sql语句，如果只有<strong>Latch Crabbing</strong>，能保证在多线程下正确运行吗？不能，我们将这句sql拆解为具体的B+树操作，首先要在accounts表对应的B+树中以1为key，搜索value值，解析出balance值后，减去100插回B+树。也就是<strong>搜索、解析、计算、插入</strong>四步，其中搜索和插入是B+树操作，各自能保证原子性，解析和计算在线程内进行，不受其他线程影响，也就是说在搜索到值后，我们完全不能保证在插入新值之前旧值会不会被其他线程改变。如果一个事务不止一句sql语句，那么就更不能保证原子性了。</p>
+<p>而行锁让事务读写一个key对应的行之前都需要获取锁，这样事务在读取旧值之前上锁，在解析、计算、插入完成之后解锁，就能保证整个过程key对应的行不会被其他事务改变。</p>
+<p>在具体设计中<strong>Lock Manager</strong>有两个最核心的api，即</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 事务 txn 请求对 key 加锁（阻塞直到获取锁或触发死锁abort）</span></span><br><span class="line"><span class="function"><span class="type">bool</span> <span class="title">Lock</span><span class="params">(<span class="type">txn_id_t</span> txn, <span class="type">int64_t</span> key, LockMode mode)</span></span>;</span><br><span class="line"><span class="comment">// 事务 txn 释放所有锁（commit 或 abort时调用）</span></span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">UnlockAll</span><span class="params">(<span class="type">txn_id_t</span> txn)</span></span>;</span><br></pre></td></tr></table></figure>
+
+<p>在事务需要读写某个key的数据时，必须先锁该key，直到事务结束时释放所有锁。在这种情况下不可避免可能出现死锁，比如如果两个人同时向对方转账，都需要先锁自己的账户扣款，再锁对方的账户打款，此时双方都持有自己的账户锁，请求对方的账户锁，就会形成死锁，因此<strong>Lock</strong>方法需要有检测死锁的能力，在死锁时回退其中一个操作在之后重试。</p>
+<h3 id="实现思路"><a href="#实现思路" class="headerlink" title="实现思路"></a>实现思路</h3><h4 id="Lock"><a href="#Lock" class="headerlink" title="Lock"></a><strong>Lock</strong></h4><p>先说<strong>Lock</strong>的具体实现，这也是<strong>Lock Manager</strong>最核心的api。首先对于<strong>Lock Manager</strong>，维护一个哈希表（可以直接使用<code>unordered_map</code>）存储<code>key</code>对应的等待队列，这个等待队列的结构如下：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 一个锁请求：事务 txn 对某 key 的一次加锁意图</span></span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">LockRequest</span> &#123;</span><br><span class="line">    <span class="type">txn_id_t</span> txn;</span><br><span class="line">    LockMode mode;</span><br><span class="line">    <span class="type">bool</span> granted = <span class="literal">false</span>;   <span class="comment">// true=已授予；false=仍在等待</span></span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 一把锁：一个资源（key）上的等待队列</span></span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">LockEntry</span> &#123;</span><br><span class="line">    <span class="type">int64_t</span> key;                    <span class="comment">// 被锁的记录 key</span></span><br><span class="line">    std::vector&lt;LockRequest&gt; queue; <span class="comment">// 等待队列（granted 在前，waiting 在后，FIFO）</span></span><br><span class="line">    std::mutex mutex;               <span class="comment">// 保护本 entry 的 queue（独占写，配 condition_variable）</span></span><br><span class="line">    std::condition_variable cv;     <span class="comment">// 等待/唤醒（排队时 wait，解锁/abort 时 notify_all）</span></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>我们不对表中的每个<code>key</code>都创建一个<code>LockEntry</code>，仅在有事务需要对<code>key</code>加锁时创建<code>LockEntry</code>，如果等待队列上没有事务，即销毁<code>LockEntry</code>。</p>
+<p>在<code>Lock</code>的逻辑中，首先从哈希表中获取<code>key</code>的<code>LockEntry</code>，如果没有则创建并加入表，当然表是需要锁保护的。</p>
+<p>然后检查等待队列中是否已经有本事务以相同<code>LockMode</code>（读锁或写锁）持锁（<code>granted == true</code>），如果有则直接返回<code>true</code>，因为本事务持有的锁只有事务结束才会释放，请求相同的锁不需要重复请求。</p>
+<p>然后检查等待队列是否有本事务等待相同的<code>LockMode</code>，理由和前面一样，之所以要区分<code>LockMode</code>，是因为锁允许从读锁升级为写锁，因此如果队列中已经有不同模式的请求，还需要加上本请求。但是这里如果队列里有的话并不返回，而是继续执行，只是如果队列里没有需要加在队尾。</p>
+<p>接着尝试获取锁，因为锁的本体就是每个请求的<code>granted</code>，所以需要自己写循环和条件变量，如下：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">bool</span> detected = <span class="literal">false</span>;   <span class="comment">// 本 Lock 调用是否已做过首次死锁检测（等待点只需检测一次）</span></span><br><span class="line"><span class="keyword">while</span> (<span class="literal">true</span>) &#123;</span><br><span class="line">    <span class="keyword">if</span> (<span class="built_in">CanGrant</span>(entry, txn, mode) || <span class="built_in">IsAborted</span>(txn)) <span class="keyword">break</span>;   <span class="comment">// 可授予或被选为 victim → 退出等待</span></span><br><span class="line">    <span class="keyword">if</span> (!detected) &#123;</span><br><span class="line">        detected = <span class="literal">true</span>;</span><br><span class="line">        lk.<span class="built_in">unlock</span>();</span><br><span class="line">        <span class="built_in">DetectDeadlocks</span>();   <span class="comment">// 死锁必然伴随某事务进入等待，等待点检测覆盖全部环</span></span><br><span class="line">        lk.<span class="built_in">lock</span>();</span><br><span class="line">        <span class="keyword">continue</span>;            <span class="comment">// 检测后重查（可能被选 victim 或锁已可授予）</span></span><br><span class="line">    &#125;</span><br><span class="line">    entry-&gt;cv.<span class="built_in">wait</span>(lk, [&amp;]&#123; <span class="keyword">return</span> <span class="built_in">CanGrant</span>(entry, txn, mode) || <span class="built_in">IsAborted</span>(txn); &#125;);</span><br><span class="line">    <span class="keyword">break</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>首先检查目前的条件<strong>是否允许获得锁</strong>或<strong>已经被死锁检测设置为需要回退的事务</strong>。允许获得锁的条件即在本请求的队列前面的请求都已经被授予（FIFO，防止写锁请求饥饿）且持锁与自己申请的<code>LockMode</code>兼容（读锁互相兼容，读写、写写、写读不兼容）。<code>IsAborted(txn)</code>为<code>true</code>的条件即能在<code>LockManager</code>维护的<code>victim</code>集合中找到本事务。</p>
+<p>如果获得锁的条件满足或者需要回退，退出循环。否则，如果是本次请求的第一次循环，进行死锁检测。由于死锁一定是由于某个事务请求一把获得不到的锁导致的，因此只要对每个不能立刻满足拿锁条件的请求进行一次死锁检测就是覆盖所有死锁情况。死锁检测的逻辑是，每个key有一个等待队列，存放拿到了锁的事务和等锁的事务。建立有向图，对于每个key的等待队列，对于每个等锁的事务A，每个持锁的非本事务B，如果等锁的事务和持锁的事务锁不兼容，则添加一条从等锁事务到持锁事务的边（A-&gt;B）；对于每个等锁的事务A，如果队列里存在排的更靠前但在等锁的非本事务B，取最近的一个，添加一条本事务到非本事务的边（A-&gt;B）。最终的有向图如果存在环，则出现死锁，本项目假设事务号最大的事务执行的操作最少，加入<code>victim</code>集合，唤醒<code>victim</code>所在等待队列的所有事务，这些事务在循环中<code>IsAborted(txn)</code>为<code>true</code>，退出循环。</p>
+<p>其他事务继续在在等待队列中等待唤醒，如果有事务调用<code>UnlockAll</code>方法，那么释放的所有key锁的队列都会被唤醒，其中的事务回重新判断尝试取锁。</p>
+<p>在离开循环之后，首先判断是因为被要求回退还是因为获准进行授予锁。先判断是否被要求回退：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (<span class="built_in">IsAborted</span>(txn)) &#123;</span><br><span class="line">    <span class="comment">// 被选为 victim：移除本事务全部请求，返回失败让调用方回滚。</span></span><br><span class="line">    <span class="comment">// 必须 notify：victim 移除的锁可能让排在其后的等待者（FIFO）获准。</span></span><br><span class="line">    entry-&gt;queue.<span class="built_in">erase</span>(std::<span class="built_in">remove_if</span>(entry-&gt;queue.<span class="built_in">begin</span>(), entry-&gt;queue.<span class="built_in">end</span>(),</span><br><span class="line">        [&amp;](<span class="type">const</span> LockRequest&amp; r)&#123; <span class="keyword">return</span> r.txn == txn; &#125;), entry-&gt;queue.<span class="built_in">end</span>());</span><br><span class="line">    entry-&gt;cv.<span class="built_in">notify_all</span>();</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>如果被要求回退，从等待队列中移除本事务全部请求，唤醒队列重新试探锁，返回<code>false</code>，让上层调用者明白锁获取被驳回，自行回退重试。</p>
+<p>接下来就进行锁授予，因为已经排除了是被选为 <code>victim</code> 的可能，剩下的运行到这里的请求都是获准进行锁授予的，直接授予。</p>
+<p>授予锁逻辑：选择队列中第一个本事务的请求更新<code>granted</code>，删除剩下的请求。因为事务内部是单线程的，所以不存在队列中同时出现多个在等锁的同一事务的请求的情况，因此<strong>不会出现先请求读key锁再请求写key锁，在读key锁的授予中删除写key锁请求的情况</strong>，只有在<strong>队列前方无本事务请求</strong>或<strong>队列前方有本事务已经授予的读锁</strong>时才会进行写锁请求。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">LockManager::Grant</span><span class="params">(LockEntry* e, <span class="type">txn_id_t</span> txn, LockMode mode)</span> </span>&#123;</span><br><span class="line">    <span class="type">bool</span> assigned = <span class="literal">false</span>;   <span class="comment">// 本事务是否已有一条请求被置为 granted（本事务至多保留一条）</span></span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">auto</span> it = e-&gt;queue.<span class="built_in">begin</span>(); it != e-&gt;queue.<span class="built_in">end</span>(); ) &#123;</span><br><span class="line">        <span class="keyword">if</span> (it-&gt;txn != txn) &#123; ++it; <span class="keyword">continue</span>; &#125;   <span class="comment">// 跳过其他事务的请求，保持其原位</span></span><br><span class="line">        <span class="keyword">if</span> (!assigned) &#123;</span><br><span class="line">            it-&gt;mode = mode;          <span class="comment">// 原位翻转（普通授予：waiting→granted；升级：S→X）</span></span><br><span class="line">            it-&gt;granted = <span class="literal">true</span>;</span><br><span class="line">            assigned = <span class="literal">true</span>;</span><br><span class="line">            ++it;</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            it = e-&gt;queue.<span class="built_in">erase</span>(it);  <span class="comment">// 升级残留的 waiting 请求</span></span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (!assigned)                    <span class="comment">// 防御：正常不会发生（Lock() 先入队再授予）</span></span><br><span class="line">        e-&gt;queue.<span class="built_in">push_back</span>(&#123;txn, mode, <span class="comment">/*granted=*/</span><span class="literal">true</span>&#125;);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="UnlockAll"><a href="#UnlockAll" class="headerlink" title="UnlockAll"></a><strong>UnlockAll</strong></h4><p>相比<strong>Lock</strong>，<strong>UnlockAll</strong>的逻辑就简单得多了。<strong>Lock</strong>已经实现了在锁请求的过程中保证了死锁检测，<strong>UnlockAll</strong>只需要保证在解锁的过程中将事务所持有的锁全部解锁(即从所有<code>key</code>的等待队列中找到本事务的请求进行删除)，并检查是否有删空的队列，删除删空的<code>LockEntry</code>。最后如果<code>victim</code>中有本事务，也需要从<code>victim</code>从删除本事务（<code>Lock</code>失败的事务会调用<code>UnlockAll</code>释放自己的锁请求）。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">LockManager::UnlockAll</span><span class="params">(<span class="type">txn_id_t</span> txn)</span> </span>&#123;</span><br><span class="line">    <span class="comment">// 第一遍：持表读锁，逐 entry 移除该事务请求并唤醒等待者</span></span><br><span class="line">    &#123;</span><br><span class="line">        <span class="function">std::shared_lock <span class="title">table_lk</span><span class="params">(table_lock_)</span></span>;</span><br><span class="line">        <span class="keyword">for</span> (<span class="keyword">auto</span>&amp; [_, entry] : lock_table_) &#123;</span><br><span class="line">            <span class="function">std::lock_guard <span class="title">entry_lk</span><span class="params">(entry-&gt;mutex)</span></span>;</span><br><span class="line">            <span class="type">size_t</span> before = entry-&gt;queue.<span class="built_in">size</span>();</span><br><span class="line">            entry-&gt;queue.<span class="built_in">erase</span>(std::<span class="built_in">remove_if</span>(entry-&gt;queue.<span class="built_in">begin</span>(), entry-&gt;queue.<span class="built_in">end</span>(),</span><br><span class="line">                [&amp;](<span class="type">const</span> LockRequest&amp; r)&#123; <span class="keyword">return</span> r.txn == txn; &#125;), entry-&gt;queue.<span class="built_in">end</span>());</span><br><span class="line">            <span class="keyword">if</span> (entry-&gt;queue.<span class="built_in">size</span>() == before) <span class="keyword">continue</span>;   <span class="comment">// 本事务未在该 key 上排队</span></span><br><span class="line">            <span class="keyword">if</span> (entry-&gt;queue.<span class="built_in">empty</span>()) <span class="keyword">continue</span>;            <span class="comment">// 空 entry 待第二遍统一删除</span></span><br><span class="line">            entry-&gt;cv.<span class="built_in">notify_all</span>();                        <span class="comment">// 唤醒等待者重新评估</span></span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// 第二遍：持表写锁删除空 entry（double-check 防与并发 Lock 竞态）</span></span><br><span class="line">    &#123;</span><br><span class="line">        <span class="function">std::unique_lock <span class="title">table_lk</span><span class="params">(table_lock_)</span></span>;</span><br><span class="line">        <span class="keyword">for</span> (<span class="keyword">auto</span> it = lock_table_.<span class="built_in">begin</span>(); it != lock_table_.<span class="built_in">end</span>(); ) &#123;</span><br><span class="line">            <span class="function">std::lock_guard <span class="title">entry_lk</span><span class="params">(it-&gt;second-&gt;mutex)</span></span>;</span><br><span class="line">            <span class="keyword">if</span> (it-&gt;second-&gt;queue.<span class="built_in">empty</span>()) it = lock_table_.<span class="built_in">erase</span>(it);   <span class="comment">// 空条目 → 删（锁数量≈活跃锁定 key 数）</span></span><br><span class="line">            <span class="keyword">else</span> ++it;                                                    <span class="comment">// 仍有请求 → 保留</span></span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// 事务结束：清理 victim 标记（供后续新事务复用同一 txn id）</span></span><br><span class="line">    <span class="function">std::lock_guard <span class="title">vk</span><span class="params">(victims_mutex_)</span></span>;</span><br><span class="line">    victims_.<span class="built_in">erase</span>(txn);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="实现中的一些问题"><a href="#实现中的一些问题" class="headerlink" title="实现中的一些问题"></a>实现中的一些问题</h3><p>在初始实现中，对死锁条件判断不准确，将有向图的建边条件设置为对每个<code>key</code>的等待队列，对每个等锁的事务到每个持锁的非本事务建立一条边，但是这样并不准确，因为<code>key</code>锁归根结底是基于<strong>锁兼容</strong>和<strong>FIFO</strong>的，比如如果一个存在下面这种情况：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">key1的等待队列：(txn=1,LockMode=读,granted=true), (txn=2,LockMode=写,granted=false), (txn=3,LockMode=读,granted=false)</span><br><span class="line">key2的等待队列：(txn=3,LockMode=读,granted=true), (txn=4,LockMode=写,granted=false), (txn=1,LockMode=读,granted=false)</span><br></pre></td></tr></table></figure>
+<p>在这种情况下，txn&#x3D;1的事务在等key2的读锁，txn&#x3D;2的事务在等key1的写锁，txn&#x3D;3的事务在等key1的读锁，txn&#x3D;4的事务在等key2的写锁，死锁。从原逻辑分析，环应该是txn&#x3D;1 -&gt; txn&#x3D;3 -&gt; txn&#x3D;1 -&gt; txn&#x3D;3，但是这是不准确的，因为txn&#x3D;1和txn&#x3D;3都是读锁请求，相互兼容，之所以会等锁，是出于<strong>FIFO</strong>，等待前一个未授予的锁请求。而txn&#x3D;2和txn&#x3D;4从FIFO考虑已经是等锁请求的第一个，但是不能获得锁是由于与持锁请求的锁类型不兼容。因此在改进的逻辑中，环应该是txn&#x3D;1 -&gt; txn&#x3D;4 -&gt; txn&#x3D;3 -&gt; txn&#x3D;2 -&gt; txn&#x3D;1。</p>
+<h2 id="Table-Manager"><a href="#Table-Manager" class="headerlink" title="Table Manager"></a><strong>Table Manager</strong></h2><p>在本项目的初始架构中没有涉及这个模块，这是因为本项目的初始架构是单表数据库，只有一棵B+树，但是在开发B+树的过程中就已经添加了页id为0的页作为<strong>Meta Page</strong>，存储统计多表的B+树根页和头页，已经做好了多表的准备，所以上层模块也要一起适配多表。</p>
+<p>B+树的构造函数需要传入表名，如果表名能在<code>Meta Page</code>找到就使用<code>Meta Page</code>的数据建树恢复数据，如果没有找到就会自动在<strong>Meta Page</strong>中建立新表项，但这在上层是不可接受的吗，因为上层在查询表时，查询不存在的表应该返回不存在信息，而不是建立表，因此需要上层与B+树之间需要<strong>Table Manager</strong>做中转，<strong>Table Manager</strong>的建表<code>api</code>会直接利用B+树构造进行建表，而查表<code>api</code>仅查询，不在查询失败时建表。</p>
+<p>这个实现并不困难，这里不多赘述，但是值得一提的是删表<code>api</code>，在此之前我的B+树模块并没有删除树的<code>api</code>，因此为此我在B+树模块中增加了删除本树的<code>api</code>，在实现中发现了一个问题。</p>
+<p>删除树的逻辑是，先后序遍历收集树的所有节点页id，再遍历调用缓存池的删除页的<code>api</code>，并更新<code>meta</code>页中的表项数据。但是在这个过程中，必须要保证1. 删除树的全过程应该不应该有其他线程读取到树的内容，树删除完成之后其他线程查找这个表都应该不存在，而不是锁到旧根，2. 删除树的过程中崩溃之后，能在恢复时继续完成删除，不造成页泄露。</p>
+<p>为了实现这个逻辑，在<code>Search</code>、<code>Insert</code>、<code>Delete</code>的下钻取锁逻辑中，增加了对根节点的判断，如果读到根节点为无效页必须要做出相应处理，而<code>Drop</code>（删除树）的实现原本采用的是先锁<code>root</code>节点，然后从<code>meta</code>页中删除表项（日志+实施），再遍历树收集页（同时写删除页日志），再统一调用删除<code>api</code>进行删除。这样一来，虽然封锁了后续线程的进入，后续线程即使读到旧根也会在下钻逻辑中判断锁到了旧根而做正确处理，但是如果在更新表项之后崩溃，后续恢复将丢失这棵树，造成<strong>内存泄露</strong>。</p>
+<p>因此最终选择新增了日志类型，锁根页后先遍历树收集节点页，再写<code>Drop</code>日志，<code>Drop</code>日志单条自成事务，因此不存在<code>Undo</code>，只有<code>Redo</code>，在日志中写入表名和节点页清单，这样再进行更新表项（不写日志）和删除页（不写日志），即使中间崩溃，<code>Redo</code>也能从<code>Drop</code>日志从得到需要删除的表项和页清单，不会造成页泄露。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://fogjw.github.io">Fogjw</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://fogjw.github.io/2026/08/10/MiniDB%EF%BC%9A%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AA%E6%95%B0%E6%8D%AE%E5%BA%93%E5%86%85%E6%A0%B8%E2%80%94%E2%80%94%E9%A1%B9%E7%9B%AE%E5%BC%80%E5%8F%91%E6%97%A5%E8%AE%B0-3/">https://fogjw.github.io/2026/08/10/MiniDB%EF%BC%9A%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AA%E6%95%B0%E6%8D%AE%E5%BA%93%E5%86%85%E6%A0%B8%E2%80%94%E2%80%94%E9%A1%B9%E7%9B%AE%E5%BC%80%E5%8F%91%E6%97%A5%E8%AE%B0-3/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://fogjw.github.io" target="_blank">Fogjw 的博客</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/Cpp/">Cpp</a><a class="post-meta__tags" href="/tags/%E5%8F%8D%E6%80%9D%E6%80%BB%E7%BB%93/">反思总结</a></div><div class="post-share"><div class="social-share" data-image="/img/cover/CG_SP04_0101.png" data-sites="facebook,x,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related full-width" href="/2026/08/05/%E7%BA%BF%E7%A8%8B%E6%B1%A0%E7%9A%84%E5%8E%9F%E7%90%86%E5%92%8C%E5%AE%9E%E7%8E%B0/" title="线程池的原理和实现"><img class="cover" src="/img/cover/CG_KY01_0105.png" onerror="onerror=null;src='/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">线程池的原理和实现</div></div><div class="info-2"><div class="info-item-1"> 在Cpp并发基础这篇笔记中我们介绍了线程的创建和使用，这篇笔记，我们将介绍线程池的原理和实现  线程池的概念 回顾：std::thread在创建后立即创建OS线程运行所分配的任务，在任务运行结束时销毁OS线程，在离开作用域时析构线程对象。在需要频繁创建线程，而线程任务又短时，线程的频繁创建和销毁带来的开销就显得难以忽视。因此在这种场景下，我们需要使用线程池。  线程池，是一组预先创建好的工作线程加上一个任务队列。当任务队列不空时，线程池中空闲的线程会接取任务执行，执行后回到空闲状态等待下一个任务。在线程池的整个生命周期中，每个线程只创建一次、销毁一次，能够反复利用。同时，线程池有初始设定的尺寸限制，保证系统同时存在的最大线程数，高并发时，没有线程执行的任务会在队列中等待，虽然这样不能保证任务在短时间内被执行，但是保证了不会出现每个任务都创建线程，导致同时存在大量线程、内存耗尽、系统崩溃的情况。另外线程池使得任务的提交和执行解耦，提交方只负责把任务提交给线程池，具体任务被哪个线程执行，提交方不在意。 线程池的结构线程池的核心组件如下： 1234567class ThreadPoo...</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/2026/08/04/MiniDB%EF%BC%9A%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AA%E6%95%B0%E6%8D%AE%E5%BA%93%E5%86%85%E6%A0%B8%E2%80%94%E2%80%94%E9%A1%B9%E7%9B%AE%E5%BC%80%E5%8F%91%E6%97%A5%E8%AE%B0-2/" title="MiniDB：从零实现一个数据库内核——项目开发日记(2)"><img class="cover" src="/img/cover/AKCG58B_A9.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-04</div><div class="info-item-2">MiniDB：从零实现一个数据库内核——项目开发日记(2)</div></div><div class="info-2"><div class="info-item-1">2026&#x2F;08&#x2F;04这段时间开发完成了WAL(WAL，即Write-Ahead Log，在修改数据之前追加写日志)模块，这个模块的作用是在应用操作之前预写日志，保证文件崩溃一致性，主要逻辑在于把多次操作划分为一个事务，事务保证在崩溃恢复后只存在事务完全没有执行和事务执行完毕两种情况。 实现思路具体考虑实现方法。 策略方面，采用STEAL + NO-FORCE组合。STEAL即未提交的事务的脏页可以刷盘，NO-FORCE即不强制要求在事务提交后立刻刷脏页。但WAL原则要求，日志必须比脏页先落盘。 数据恢复方面，采用ARIES三阶段，即Analysis（分析）、Redo（重放）、Undo（回滚）三步。 每个事务有一个事务id txn，每条日志有一个日志序列号lsn（Log Sequence Number）。 日志文件中有两种日志，一种是操作日志，一种是标识日志，操作日志即如在数据库中进行增删改操作，标识日志不进行数据库操作，只标识信息，下面列出本项目用到的标识日志字段。  begin 事务开始，表示事务的起始 commit 事务提交，表示事务结束，标示事务的完整性...</div></div></div></a><a class="pagination-related" href="/2026/07/22/MiniDB%EF%BC%9A%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AA%E6%95%B0%E6%8D%AE%E5%BA%93%E5%86%85%E6%A0%B8%E2%80%94%E2%80%94%E9%A1%B9%E7%9B%AE%E5%BC%80%E5%8F%91%E6%97%A5%E8%AE%B0/" title="MiniDB：从零实现一个数据库内核——项目开发日记(1)"><img class="cover" src="/img/cover/cg_um16_0101.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-22</div><div class="info-item-2">MiniDB：从零实现一个数据库内核——项目开发日记(1)</div></div><div class="info-2"><div class="info-item-1">此文章用于记录在开发MiniDB项目中碰到的问题及解决方法，不懂的点和学习后的总结等诸多碎碎念。 项目介绍 定位：从零实现一个轻量级关系数据库，具备完整的数据库内核能力——缓冲池、索引、事务、恢复、SQL 支持。 目标：在项目开发完成时，此项目应具备能力：   支持部分SQL语句（SELECT&#x2F;INSERT&#x2F;CREATE TABLE&#x2F;DELETE） 支持并发多线程读写，MVCC 快照分离 WAL 预写日志 + ARIES 崩溃恢复 有 Web 管理面板（执行 SQL、看引擎监控）   技术栈：   C++17：模板、智能指针、RAII、移动语义 并发编程：std::thread、std::shared_mutex、std::atomic、std::condition_variable 存储引擎：B+Tree、Buffer Pool、Slotted Page、Clock-Sweep 淘汰 事务与恢复：MVCC、Lock Manager、ARIES WAL 网络通信：Unix Socket、Protocol Buffers Web 开发：Go net&#...</div></div></div></a><a class="pagination-related" href="/2026/08/05/%E7%BA%BF%E7%A8%8B%E6%B1%A0%E7%9A%84%E5%8E%9F%E7%90%86%E5%92%8C%E5%AE%9E%E7%8E%B0/" title="线程池的原理和实现"><img class="cover" src="/img/cover/CG_KY01_0105.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-05</div><div class="info-item-2">线程池的原理和实现</div></div><div class="info-2"><div class="info-item-1"> 在Cpp并发基础这篇笔记中我们介绍了线程的创建和使用，这篇笔记，我们将介绍线程池的原理和实现  线程池的概念 回顾：std::thread在创建后立即创建OS线程运行所分配的任务，在任务运行结束时销毁OS线程，在离开作用域时析构线程对象。在需要频繁创建线程，而线程任务又短时，线程的频繁创建和销毁带来的开销就显得难以忽视。因此在这种场景下，我们需要使用线程池。  线程池，是一组预先创建好的工作线程加上一个任务队列。当任务队列不空时，线程池中空闲的线程会接取任务执行，执行后回到空闲状态等待下一个任务。在线程池的整个生命周期中，每个线程只创建一次、销毁一次，能够反复利用。同时，线程池有初始设定的尺寸限制，保证系统同时存在的最大线程数，高并发时，没有线程执行的任务会在队列中等待，虽然这样不能保证任务在短时间内被执行，但是保证了不会出现每个任务都创建线程，导致同时存在大量线程、内存耗尽、系统崩溃的情况。另外线程池使得任务的提交和执行解耦，提交方只负责把任务提交给线程池，具体任务被哪个线程执行，提交方不在意。 线程池的结构线程池的核心组件如下： 1234567class ThreadPoo...</div></div></div></a><a class="pagination-related" href="/2026/07/19/Cpp%E6%99%BA%E8%83%BD%E6%8C%87%E9%92%88%E7%9A%84%E7%94%A8%E6%B3%95%E5%92%8C%E5%8C%BA%E5%88%AB/" title="Cpp智能指针的用法和区别"><img class="cover" src="/img/cover/cg_km11_0101.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-19</div><div class="info-item-2">Cpp智能指针的用法和区别</div></div><div class="info-2"><div class="info-item-1">Cpp的智能指针智能指针是RAII（Resource Acquisition Is Initialization，资源获取即初始化）思想的的应用，智能指针在构造函数获取资源（new），在析构函数释放资源（delete），让动态内存管理自动化和异常安全。 为什么需要智能指针？当资源被分配（new）后没有回收（delete）会导致资源泄露，而资源被重复回收（delete）会导致未定义行为（对野指针进行delete操作）。将资源分配和回收封装进构造函数和析构函数，在对象结束生命周期时自动回收资源可以避免产生这样的问题。  tips：不管是delete，还是free，底层都保证了空指针安全，对空指针进行资源回收是安全的。  Cpp智能指针有哪些？Cpp智能指针有三种，分别为unique_ptr、shared_ptr和weak_ptr（auto_ptr在C++17被删除）。使用智能指针需要引入头文件#include &lt;memory&gt;。 std::unique_ptrunique_ptr的特点是唯一所有权，同一时间只能有一个unique_ptr拥有同一个对象，且不能进行拷贝，只能...</div></div></div></a><a class="pagination-related" href="/2026/07/28/BPlusTree%E7%9A%84%E7%BB%B4%E6%8A%A4%E6%9C%BA%E5%88%B6%E5%92%8C%E5%AE%9E%E7%8E%B0%E6%80%9D%E8%B7%AF/" title="BPlusTree的维护机制和实现思路"><img class="cover" src="/img/cover/cg_tm05_0201.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-28</div><div class="info-item-2">BPlusTree的维护机制和实现思路</div></div><div class="info-2"><div class="info-item-1">B+树B+树是一种多路平衡查找树，与B-树的区别在于，B+树将数据都放在叶子节点，非叶子节点只存放索引，这让树的高度更低，磁盘I&#x2F;O次数更少，同时叶子节点之间相互连接使得B+树范围查询效率也很好。综上因此B+树被广为应用于数据库索引和文件系统。 B+树的结构B+树由两种节点（叶子节点和非叶子节点）构成，数据只存放在叶子节点，非叶子节点只存放索引。 以存放key-value映射为例，m阶B+树的叶子节点最多存放 (m - 1) 个key-value映射，在节点非根的情况下，叶子节点最少存放 ⌈(m - 1) &#x2F; 2⌉ 个key-value；非叶子节点最多存放 (m - 1) 个key和 m 个指向子节点的索引，在节点非根的情况下，非叶子节点最少存放 (⌈m &#x2F; 2⌉ - 1) 个key和 ⌈m &#x2F; 2⌉ 个指向子节点的索引。以32阶B+树为例，叶子节点最多存放31个key-value，非根叶节点最少存放16个key-value，非叶子节点最多存放31个key和32个索引，非根非叶子节点最少存放15个key和16个索引。B+树保证节点内的key...</div></div></div></a><a class="pagination-related" href="/2026/07/20/Cpp%E5%B9%B6%E5%8F%91%E5%9F%BA%E7%A1%80/" title="Cpp并发基础"><img class="cover" src="/img/cover/CG_SR05_0101.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-20</div><div class="info-item-2">Cpp并发基础</div></div><div class="info-2"><div class="info-item-1">线程的创建和使用std::threadCpp线程使用std::thread类创建，创建之后立即运行分配的函数任务。使用std::thread需要引入头文件#include &lt;thread&gt;。 1234567891011void worker() &#123;    // 任务&#125;int main() &#123;    std::thread t1(worker); // 异步运行    std::thread t2(worker); // 异步运行    t1.join();    t2.join();&#125;  如代码所示，在t1和t2创建后即运行传入的函数任务，之后调用join使主线程等待t1和t2运行结束。当worker需要传入参数时，如 1234void worker(int id, string&amp; name) &#123;    std::cout &lt;&lt; &quot;id: &quot; &lt;&lt; id;    std::cout &lt;&lt; &quot;, name: &quot; &lt;&lt; name...</div></div></div></a></div></div><hr class="custom-hr"/><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="fas fa-comments fa-fw"></i><span> 评论</span></div></div><div class="comment-wrap"><div><div id="giscus-wrap"></div></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="/img/avatar.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info-name">Fogjw</div><div class="author-info-description">一个写代码的人</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">9</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">5</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">4</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/Fogjw"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/Fogjw" target="_blank" title="GitHub"><i class="fab fa-github" style="color: #24292e;"></i></a><a class="social-icon" href="https://x.com/Foggggg0924" target="_blank" title="X"><i class="fab fa-x-twitter" style="color: #000000;"></i></a><a class="social-icon" href="javascript:void(0)" target="_blank" title="QQ"><i class="fas fa-envelope" style="color: #4a7dbe;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">欢迎来到我的博客 🎉</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#2026-08-10"><span class="toc-number">1.</span> <span class="toc-text">2026&#x2F;08&#x2F;10</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Lock-Manager"><span class="toc-number">1.1.</span> <span class="toc-text">Lock Manager</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%A6%82%E5%BF%B5%E8%A7%A3%E6%9E%90"><span class="toc-number">1.1.1.</span> <span class="toc-text">概念解析</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%AE%9E%E7%8E%B0%E6%80%9D%E8%B7%AF"><span class="toc-number">1.1.2.</span> <span class="toc-text">实现思路</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#Lock"><span class="toc-number">1.1.2.1.</span> <span class="toc-text">Lock</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#UnlockAll"><span class="toc-number">1.1.2.2.</span> <span class="toc-text">UnlockAll</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%AE%9E%E7%8E%B0%E4%B8%AD%E7%9A%84%E4%B8%80%E4%BA%9B%E9%97%AE%E9%A2%98"><span class="toc-number">1.1.3.</span> <span class="toc-text">实现中的一些问题</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Table-Manager"><span class="toc-number">1.2.</span> <span class="toc-text">Table Manager</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/2026/08/10/MiniDB%EF%BC%9A%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AA%E6%95%B0%E6%8D%AE%E5%BA%93%E5%86%85%E6%A0%B8%E2%80%94%E2%80%94%E9%A1%B9%E7%9B%AE%E5%BC%80%E5%8F%91%E6%97%A5%E8%AE%B0-3/" title="MiniDB：从零实现一个数据库内核——项目开发日记(3)"><img src="/img/cover/CG_SP04_0101.png" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="MiniDB：从零实现一个数据库内核——项目开发日记(3)"/></a><div class="content"><a class="title" href="/2026/08/10/MiniDB%EF%BC%9A%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AA%E6%95%B0%E6%8D%AE%E5%BA%93%E5%86%85%E6%A0%B8%E2%80%94%E2%80%94%E9%A1%B9%E7%9B%AE%E5%BC%80%E5%8F%91%E6%97%A5%E8%AE%B0-3/" title="MiniDB：从零实现一个数据库内核——项目开发日记(3)">MiniDB：从零实现一个数据库内核——项目开发日记(3)</a><time datetime="2026-08-10T13:31:23.000Z" title="发表于 2026-08-10 21:31:23">2026-08-10</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/08/05/%E7%BA%BF%E7%A8%8B%E6%B1%A0%E7%9A%84%E5%8E%9F%E7%90%86%E5%92%8C%E5%AE%9E%E7%8E%B0/" title="线程池的原理和实现"><img src="/img/cover/CG_KY01_0105.png" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="线程池的原理和实现"/></a><div class="content"><a class="title" href="/2026/08/05/%E7%BA%BF%E7%A8%8B%E6%B1%A0%E7%9A%84%E5%8E%9F%E7%90%86%E5%92%8C%E5%AE%9E%E7%8E%B0/" title="线程池的原理和实现">线程池的原理和实现</a><time datetime="2026-08-05T06:14:55.000Z" title="发表于 2026-08-05 14:14:55">2026-08-05</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/08/04/MiniDB%EF%BC%9A%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AA%E6%95%B0%E6%8D%AE%E5%BA%93%E5%86%85%E6%A0%B8%E2%80%94%E2%80%94%E9%A1%B9%E7%9B%AE%E5%BC%80%E5%8F%91%E6%97%A5%E8%AE%B0-2/" title="MiniDB：从零实现一个数据库内核——项目开发日记(2)"><img src="/img/cover/AKCG58B_A9.png" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="MiniDB：从零实现一个数据库内核——项目开发日记(2)"/></a><div class="content"><a class="title" href="/2026/08/04/MiniDB%EF%BC%9A%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AA%E6%95%B0%E6%8D%AE%E5%BA%93%E5%86%85%E6%A0%B8%E2%80%94%E2%80%94%E9%A1%B9%E7%9B%AE%E5%BC%80%E5%8F%91%E6%97%A5%E8%AE%B0-2/" title="MiniDB：从零实现一个数据库内核——项目开发日记(2)">MiniDB：从零实现一个数据库内核——项目开发日记(2)</a><time datetime="2026-08-04T09:47:36.000Z" title="发表于 2026-08-04 17:47:36">2026-08-04</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/28/BPlusTree%E7%9A%84%E7%BB%B4%E6%8A%A4%E6%9C%BA%E5%88%B6%E5%92%8C%E5%AE%9E%E7%8E%B0%E6%80%9D%E8%B7%AF/" title="BPlusTree的维护机制和实现思路"><img src="/img/cover/cg_tm05_0201.png" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="BPlusTree的维护机制和实现思路"/></a><div class="content"><a class="title" href="/2026/07/28/BPlusTree%E7%9A%84%E7%BB%B4%E6%8A%A4%E6%9C%BA%E5%88%B6%E5%92%8C%E5%AE%9E%E7%8E%B0%E6%80%9D%E8%B7%AF/" title="BPlusTree的维护机制和实现思路">BPlusTree的维护机制和实现思路</a><time datetime="2026-07-28T12:49:54.000Z" title="发表于 2026-07-28 20:49:54">2026-07-28</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/22/MiniDB%EF%BC%9A%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AA%E6%95%B0%E6%8D%AE%E5%BA%93%E5%86%85%E6%A0%B8%E2%80%94%E2%80%94%E9%A1%B9%E7%9B%AE%E5%BC%80%E5%8F%91%E6%97%A5%E8%AE%B0/" title="MiniDB：从零实现一个数据库内核——项目开发日记(1)"><img src="/img/cover/cg_um16_0101.png" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="MiniDB：从零实现一个数据库内核——项目开发日记(1)"/></a><div class="content"><a class="title" href="/2026/07/22/MiniDB%EF%BC%9A%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AA%E6%95%B0%E6%8D%AE%E5%BA%93%E5%86%85%E6%A0%B8%E2%80%94%E2%80%94%E9%A1%B9%E7%9B%AE%E5%BC%80%E5%8F%91%E6%97%A5%E8%AE%B0/" title="MiniDB：从零实现一个数据库内核——项目开发日记(1)">MiniDB：从零实现一个数据库内核——项目开发日记(1)</a><time datetime="2026-07-22T10:19:45.000Z" title="发表于 2026-07-22 18:19:45">2026-07-22</time></div></div></div></div></div></div></main><footer id="footer"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2026 By Fogjw</span><span class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo 8.1.2</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.6.0</a></span></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><a id="to_comment" href="#post-comment" title="前往评论"><i class="fas fa-comments"></i></a><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.6.0"></script><script src="/js/main.js?v=5.6.0"></script><div class="js-pjax"><script>(() => {
+  const isShuoshuo = GLOBAL_CONFIG_SITE.pageType === 'shuoshuo'
+  const option = {"mapping":"pathname","reactionsEnabled":1,"emitMetadata":0,"inputPosition":"bottom","lang":"zh-CN","loading":"lazy"}
+
+  const getGiscusTheme = theme => theme === 'dark' ? 'dark' : 'light'
+
+  const createScriptElement = config => {
+    const ele = document.createElement('script')
+    Object.entries(config).forEach(([key, value]) => {
+      ele.setAttribute(key, value)
+    })
+    return ele
+  }
+
+  const loadGiscus = (el = document, key) => {
+    const mappingConfig = isShuoshuo
+      ? { 'data-mapping': 'specific', 'data-term': key }
+      : { 'data-mapping': (option && option['data-mapping']) || 'pathname' }
+
+    const giscusConfig = {
+      src: 'https://giscus.app/client.js',
+      'data-repo': 'Fogjw/Fogjw.github.io',
+      'data-repo-id': 'R_kgDOTbKKaw',
+      'data-category-id': 'DIC_kwDOTbKKa84DCJ4w',
+      'data-theme': getGiscusTheme(document.documentElement.getAttribute('data-theme')),
+      'data-reactions-enabled': '1',
+      crossorigin: 'anonymous',
+      async: true,
+      ...option,
+      ...mappingConfig
+    }
+
+    const scriptElement = createScriptElement(giscusConfig)
+
+    el.querySelector('#giscus-wrap').appendChild(scriptElement)
+
+    if (isShuoshuo) {
+      window.shuoshuoComment.destroyGiscus = () => {
+        if (el.children.length) {
+          el.innerHTML = ''
+          el.classList.add('no-comment')
+        }
+      }
+    }
+  }
+
+  const changeGiscusTheme = theme => {
+    const iframe = document.querySelector('#giscus-wrap iframe')
+    if (iframe) {
+      const message = {
+        giscus: {
+          setConfig: {
+            theme: getGiscusTheme(theme)
+          }
+        }
+      }
+      iframe.contentWindow.postMessage(message, 'https://giscus.app')
+    }
+  }
+
+  btf.addGlobalFn('themeChange', changeGiscusTheme, 'giscus')
+
+  if (isShuoshuo) {
+    'Giscus' === 'Giscus'
+      ? window.shuoshuoComment = { loadComment: loadGiscus }
+      : window.loadOtherComment = loadGiscus
+    return
+  }
+
+  if ('Giscus' === 'Giscus' || !false) {
+    if (false) btf.loadComment(document.getElementById('giscus-wrap'), loadGiscus)
+    else loadGiscus()
+  } else {
+    window.loadOtherComment = loadGiscus
+  }
+})()</script></div><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>
