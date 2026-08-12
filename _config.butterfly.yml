@@ -39,7 +39,7 @@ avatar:
 disable_top_img: false
 index_img: /img/bg002ax15.png
 background: /img/BG014A.png
-default_top_img: /img/bg905ax15.png
+default_top_img: /img/Lokushi.png
 subtitle:
   enable: true
   effect: true
