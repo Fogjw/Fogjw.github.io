@@ -1,0 +1,919 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Go语言学习笔记 | Fogjw 的博客</title><meta name="author" content="Fogjw"><meta name="copyright" content="Fogjw"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="本篇面向像笔者这样有C&#x2F;C++基础、想要入门Go的读者。  认识GoGo语言（Golang）是由Google设计的一种静态强类型、编译型、并发型，并具备垃圾回收功能的开源编程语言。它旨在结合动态语言的开发效率和静态编译语言的安全性及性能，为解决现代软件开发中的规模化和并发问题而生。 Go的设计理念是以软件工程为导向，追求极致的简单、组合与高效并发。 概念了解了解就行了。 go.mod和包（pac">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Go语言学习笔记">
+<meta property="og:url" content="https://fogjw.github.io/2026/08/19/Go%E8%AF%AD%E8%A8%80%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/index.html">
+<meta property="og:site_name" content="Fogjw 的博客">
+<meta property="og:description" content="本篇面向像笔者这样有C&#x2F;C++基础、想要入门Go的读者。  认识GoGo语言（Golang）是由Google设计的一种静态强类型、编译型、并发型，并具备垃圾回收功能的开源编程语言。它旨在结合动态语言的开发效率和静态编译语言的安全性及性能，为解决现代软件开发中的规模化和并发问题而生。 Go的设计理念是以软件工程为导向，追求极致的简单、组合与高效并发。 概念了解了解就行了。 go.mod和包（pac">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://fogjw.github.io/img/cover/CG_SP02_0304.png">
+<meta property="article:published_time" content="2026-08-19T05:40:33.000Z">
+<meta property="article:modified_time" content="2026-08-20T06:20:51.375Z">
+<meta property="article:author" content="Fogjw">
+<meta property="article:tag" content="Go">
+<meta property="article:tag" content="反思总结">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://fogjw.github.io/img/cover/CG_SP02_0304.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Go语言学习笔记",
+  "url": "https://fogjw.github.io/2026/08/19/Go%E8%AF%AD%E8%A8%80%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/",
+  "image": "https://fogjw.github.io/img/cover/CG_SP02_0304.png",
+  "datePublished": "2026-08-19T05:40:33.000Z",
+  "dateModified": "2026-08-20T06:20:51.375Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "Fogjw",
+      "url": "https://fogjw.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="/img/avatar.png"><link rel="canonical" href="https://fogjw.github.io/2026/08/19/Go%E8%AF%AD%E8%A8%80%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=5.6.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        const data = { value }
+
+        if (ttl != null) {
+          data.expiry = Date.now() + ttl * 86400000
+        }
+
+        localStorage.setItem(key, JSON.stringify(data))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false,"highlightFullpage":false,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Go语言学习笔记',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><style>#page-header:not(.full_page){background-position:center top -150px!important} .card-info-social-icons{flex-direction:column!important;align-items:stretch!important;gap:4px!important;padding:0 16px 16px} .card-info-social-icons .social-icon{display:flex!important;align-items:center!important;gap:8px!important;padding:6px 12px!important;border-radius:6px!important;transition:background .2s;width:auto!important;height:auto!important;font-size:14px!important} .card-info-social-icons .social-icon:hover{background:var(--btn-bg)!important;color:var(--btn-color)!important} .card-info-social-icons .social-icon i{font-size:20px!important;width:24px!important;text-align:center!important} .card-info-social-icons .social-icon::after{content:attr(title);font-size:14px} .card-info-social-icons .social-icon[title*="QQ"]{pointer-events:none;opacity:.7} .card-info-social-icons .social-icon[title*="QQ"]::after{content:"1778357215@qq.com"} </style><meta name="generator" content="Hexo 8.1.2"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(/img/BG014A.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="/img/avatar.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">12</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">17</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">4</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fas fa-link"></i><span> 友链</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> 关于</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg fixed" id="page-header" style="background-image: url(/img/cover/CG_SP02_0304.png);"><nav id="nav"><span id="blog-info"><a class="nav-site-title" href="/"><span class="site-name">Fogjw 的博客</span></a><a class="nav-page-title" href="/"><span class="site-name">Go语言学习笔记</span><span class="site-name"><i class="fa-solid fa-circle-arrow-left"></i><span>  返回首页</span></span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fas fa-link"></i><span> 友链</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> 关于</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">Go语言学习笔记</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-08-19T05:40:33.000Z" title="发表于 2026-08-19 13:40:33">2026-08-19</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-08-20T06:20:51.375Z" title="更新于 2026-08-20 14:20:51">2026-08-20</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/">学习笔记</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><blockquote>
+<p>本篇面向像笔者这样有<code>C/C++</code>基础、想要入门<code>Go</code>的读者。</p>
+</blockquote>
+<h1 id="认识Go"><a href="#认识Go" class="headerlink" title="认识Go"></a><strong>认识Go</strong></h1><p><strong>Go语言（Golang</strong>）是由<strong>Google</strong>设计的一种静态强类型、编译型、并发型，并具备垃圾回收功能的开源编程语言。它旨在结合动态语言的开发效率和静态编译语言的安全性及性能，为解决现代软件开发中的规模化和并发问题而生。</p>
+<p><strong>Go</strong>的设计理念是<strong>以软件工程为导向，追求极致的简单、组合与高效并发</strong>。</p>
+<p><del>概念了解了解就行了。</del></p>
+<h1 id="go-mod和包（package）"><a href="#go-mod和包（package）" class="headerlink" title="go.mod和包（package）"></a><code>go.mod</code>和包（package）</h1><p><code>go.mod</code> 是 <code>Go</code> 语言官方依赖管理工具 <strong>Go Modules</strong>的核心文件，定义了当前项目的<strong>模块（Module</strong>）信息及其所有依赖。</p>
+<p><strong>模块 (Module)</strong>：是 <code>Go</code> 依赖管理的基本单元。一个模块是<strong>一组 Go 包的集合</strong>，由项目根目录下的 <code>go.mod</code> 文件定义。每个模块都拥有一个唯一的<strong>模块路径 (Module Path)</strong> 作为其标识符。</p>
+<p><strong>包 (Package)</strong>：是 <code>Go</code> 代码组织的基本单元，即<strong>同一目录下的一组</strong> <code>.go</code> <strong>源文件</strong>的集合。</p>
+<p>一个模块包含一个或多个包。一个包的<strong>导入路径 (Import Path)</strong> 就是 “<strong>模块路径 + 包所在子目录</strong>”。</p>
+<p>比如说假设项目的<code>go.mod</code>有如下内容：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// api/go.mod</span></span><br><span class="line">module minidb/api   <span class="comment">// 模块名 = 所有包导入路径的根</span></span><br><span class="line"><span class="keyword">go</span> <span class="number">1.22</span>             <span class="comment">// 语言最低版本</span></span><br></pre></td></tr></table></figure>
+
+<p>这里<code>module minidb/api</code>就是<strong>Go模块</strong>的<strong>module声明</strong>，规定”本项目里所有包的导入路径，都以 <code>minidb/api</code> 开头”。</p>
+<p>Go 代码按<strong>包</strong>组织：一个目录 &#x3D; 一个包。<code>api/engine/</code> 目录下所有 <code>.go</code> 文件第一行都是 <code>package engine</code>。</p>
+<p>如果需要跨包引用，就需要<code>import</code>其他的包（这里可以类比<code>C++</code>的<code>#include</code>），其他包如果要使用<code>engine</code>包的公有数据结构或<code>api</code>，就要<code>import &quot;minidb/api/engine&quot;</code>，可以看到，这里的<code>import</code>路径（也就是<strong>导入路径</strong>）是以前面<code>module</code>声明的<code>minidb/api</code>（<strong>模块路径</strong>）为前缀的。</p>
+<p>Go 编译时，遇到 <code>import &quot;X&quot;</code> 会先查 <code>go.mod</code> 里的 <code>module</code> 名，把 <code>X</code> 的开头部分和 <code>module</code> 名比对。如果 <code>module</code> 名是 <code>minidb/api</code>，那么：</p>
+<ul>
+<li><code>import &quot;minidb/api/engine&quot;</code> -&gt; 编译器解析：<code>module</code> 名是 <code>minidb/api</code>，那 <code>engine</code> 就对应 <code>api/engine/</code> 目录</li>
+<li><code>import &quot;myproject/engine&quot;</code> -&gt; 开头 <code>myproject</code> 和 <code>module</code> 名 <code>minidb/api</code> 对不上 -&gt; 报错：找不到这个包</li>
+</ul>
+<p>值得一提的是，如果按照社区标准写法，这里的<strong>模块路径</strong>应该为<code>github.com/名字/minidb/api</code>。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// api/go.mod</span></span><br><span class="line">module github.com/你的名字/minidb/api</span><br><span class="line"></span><br><span class="line"><span class="comment">// api/main.go</span></span><br><span class="line"><span class="keyword">import</span> (</span><br><span class="line">    <span class="string">&quot;github.com/你的名字/minidb/api/engine&quot;</span></span><br><span class="line">    <span class="string">&quot;github.com/你的名字/minidb/api/handler&quot;</span></span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+
+<p>这是因为，Go 编译在<strong>导入路径</strong>与<code>go.mod</code>中声明的<strong>模块路径</strong>不匹配时，会判定这是<strong>外部依赖</strong>，会去网上拉取，出于这种需求，发布在<strong>github</strong>上的Go 模块应该在全局做到唯一，而因为<strong>github</strong>平台保证了<strong>用户名&#x2F;仓库名</strong>唯一，因此直接使用上面的格式路径，即能保证模块唯一性，同时是有效的可供拉取的<code>url</code>。</p>
+<h1 id="变量与常量"><a href="#变量与常量" class="headerlink" title="变量与常量"></a><strong>变量</strong>与<strong>常量</strong></h1><p>Go 语言支持类型推断，使用<code>:=</code>，但是<code>:=</code>只能在函数内使用，<code>var</code> 可以在函数内外。Go 语法中类型写在变量名后面（如<code>var x int</code>）。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 类型自动推断</span></span><br><span class="line">x := <span class="number">10</span>          <span class="comment">// int</span></span><br><span class="line">s := <span class="string">&quot;hello&quot;</span>     <span class="comment">// string</span></span><br><span class="line"><span class="keyword">var</span> a = <span class="number">10</span>       <span class="comment">// int</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 显式类型声明</span></span><br><span class="line"><span class="keyword">var</span> y <span class="type">int</span>        <span class="comment">// int</span></span><br><span class="line"><span class="keyword">var</span> e <span class="type">error</span>      <span class="comment">// error</span></span><br><span class="line"><span class="keyword">var</span> b <span class="type">int</span> = <span class="number">10</span>   <span class="comment">// int</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 常量</span></span><br><span class="line"><span class="keyword">const</span> size = <span class="number">16</span>  <span class="comment">// 无类型常量</span></span><br><span class="line"><span class="keyword">const</span> z <span class="type">int</span> = <span class="number">10</span> <span class="comment">// 有类型常量（int）</span></span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>Go 语言编译器强制保证<strong>声明即初始化</strong>，所有变量在声明时，都会被显式地初始化为其类型的<strong>零值（Zero Value）</strong>。因此上面如<code>var y int</code>这样只声明没有赋值的变量，值为该类型的<strong>零值</strong>，这和 C&#x2F;C++ 未初始化的变量可能是任意垃圾值不同。<strong>零值</strong>后面会讲。</li>
+</ul>
+<h2 id="基本类型与复合类型"><a href="#基本类型与复合类型" class="headerlink" title="基本类型与复合类型"></a><strong>基本类型</strong>与<strong>复合类型</strong></h2><p>Go 语言是强静态类型语言，变量类型在编译期间被严格确定，并且在程序运行过程中无法改变。类型之间的操作必须显式进行，编译器<strong>不允许隐式类型转换</strong>。</p>
+<p>比如说，在 C&#x2F;C++ 中，我们经常直接把非布尔类型变量当做布尔类型使用，但是Go 语言禁止这样做。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">x := <span class="number">1</span></span><br><span class="line"><span class="keyword">if</span> x &#123;&#125; <span class="comment">// 报错！x 是 int 类型，不是 bool 类型</span></span><br></pre></td></tr></table></figure>
+
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">x := <span class="number">1</span></span><br><span class="line"><span class="keyword">if</span> x != <span class="number">0</span> &#123;&#125; <span class="comment">// 正确</span></span><br></pre></td></tr></table></figure>
+
+<p>Go 语言有显式类型转换语法，如</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">y := <span class="number">10</span> <span class="comment">// y 是 int（int32）</span></span><br><span class="line">x := <span class="type">int64</span>(y)</span><br></pre></td></tr></table></figure>
+
+<p>但是<strong>没有</strong>类型可以像<code>bool(x)</code>这样转换为<code>bool</code>类型。</p>
+<p>一些基本类型和复合类型：</p>
+<table>
+<thead>
+<tr>
+<th>类型</th>
+<th>例子</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>整数</td>
+<td><code>int</code>, <code>uint64</code>, <code>uint32</code></td>
+<td>有符号&#x2F;无符号，位数不同</td>
+</tr>
+<tr>
+<td>字符串</td>
+<td><code>string</code></td>
+<td>不可变字节序列（UTF-8）</td>
+</tr>
+<tr>
+<td>布尔</td>
+<td><code>bool</code></td>
+<td>true&#x2F;false</td>
+</tr>
+<tr>
+<td>切片</td>
+<td><code>[]string{&quot;a&quot;,&quot;b&quot;}</code></td>
+<td>动态数组</td>
+</tr>
+<tr>
+<td>map</td>
+<td><code>map[string]any{...}</code></td>
+<td>键值对</td>
+</tr>
+<tr>
+<td>struct</td>
+<td><code>type Row struct{...}</code></td>
+<td>结构体</td>
+</tr>
+<tr>
+<td>错误</td>
+<td><code>error</code></td>
+<td>接口类型，nil 表示无错误</td>
+</tr>
+</tbody></table>
+<h3 id="零值"><a href="#零值" class="headerlink" title="零值"></a><strong>零值</strong></h3><p>一些类型的零值：</p>
+<table>
+<thead>
+<tr>
+<th>类型</th>
+<th>零值</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>int &#x2F; float</td>
+<td>0</td>
+</tr>
+<tr>
+<td>bool</td>
+<td>false</td>
+</tr>
+<tr>
+<td>string</td>
+<td>“”</td>
+</tr>
+<tr>
+<td>指针 *T</td>
+<td>nil</td>
+</tr>
+<tr>
+<td>切片 []T</td>
+<td>nil</td>
+</tr>
+<tr>
+<td>map</td>
+<td>nil</td>
+</tr>
+<tr>
+<td>接口（含 error）</td>
+<td>nil</td>
+</tr>
+<tr>
+<td>函数 &#x2F; channel</td>
+<td>nil</td>
+</tr>
+</tbody></table>
+<p>可以看到有很多类型的零值都是<code>nil</code>。在 Go 语言中，<strong>引用类型（Reference Type）</strong> 并不是指“像 C++ 那样的引用传递”，而是指：<strong>该类型的变量在赋值或传参时</strong>，复制的是一份“<strong>指向底层数据结构的描述符（Descriptor）</strong>”，而非复制底层数据本身。它们的零值都是<code>nil</code>。</p>
+<h3 id="切片-T"><a href="#切片-T" class="headerlink" title="切片 []T"></a>切片 <code>[]T</code></h3><p><strong>切片</strong>（slice）是Go 语言最常用的类型之一，比数组更常用。切片建立在数组之上，但解决了数组长度固定的缺陷，提供动态扩容的能力。</p>
+<h4 id="切片的底层数据结构"><a href="#切片的底层数据结构" class="headerlink" title="切片的底层数据结构"></a>切片的底层数据结构</h4><p>切片不是单纯的指针，而是一个<strong>描述符</strong>，包含三个字段，在64位系统上占24字节：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">type</span> slice <span class="keyword">struct</span> &#123;</span><br><span class="line">    ptr *array <span class="comment">// 指向底层数组的指针</span></span><br><span class="line">    <span class="built_in">len</span> <span class="type">int</span>    <span class="comment">// 当前切片存储的元素个数（长度）</span></span><br><span class="line">    <span class="built_in">cap</span> <span class="type">int</span>    <span class="comment">// 底层数组从 ptr 开始算起的总容量（容量）</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li><code>len</code>：你当前能访问到的元素范围（索引 <code>0</code> 到 <code>len-1</code>）。</li>
+<li><code>cap</code>：底层数组实际分配的大小（索引 <code>0</code> 到 <code>cap-1</code>）。<code>cap &gt;= len</code> 恒成立。</li>
+</ul>
+<h4 id="切片的创建方式"><a href="#切片的创建方式" class="headerlink" title="切片的创建方式"></a>切片的创建方式</h4><ol>
+<li>声明</li>
+</ol>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">var</span> s []<span class="type">int</span></span><br></pre></td></tr></table></figure>
+
+<p>此时底层数组未分配，<code>s == nil</code>为<code>true</code>。</p>
+<p>可以使用 <code>append</code> 添加元素（Go 自动分配底层数组）</p>
+<ol start="2">
+<li>字面量</li>
+</ol>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">s := []<span class="type">int</span>&#123;<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>&#125;</span><br></pre></td></tr></table></figure>
+
+<p>底层数组由编译器自动创建并填充，<code>s == nil</code>为<code>false</code>。</p>
+<p>如果是<code>s := []int{}</code>空切片，虽然与第一种方法的<code>nil</code>切片在使用用 <code>append</code>、<code>len</code>、<code>cap</code> 时行为完全一致，但是此时<code>s == nil</code>是<code>false</code>，底层数组指针指向一个全局共享的占位符地址（非<code>nil</code>）。</p>
+<ol start="3">
+<li><code>make</code>函数</li>
+</ol>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">s := <span class="built_in">make</span>([]<span class="type">int</span>, <span class="number">3</span>, <span class="number">5</span>)</span><br></pre></td></tr></table></figure>
+
+<p>对于切片，<code>make</code>的参数为<code>make([]T, len, cap)</code>，其中<code>cap</code>是<strong>可选参数</strong>，如果填，必须 <code>&gt;= len</code>，省略时默认等于<code>len</code>。底层数组分配的空间大小为<code>cap * sizeof(T)</code>，且分配后全部为零值。<code>len</code>表示当前切片中已经初始化并归零的元素个数，可以通过索引<code>0</code>到<code>len - 1</code>访问（均为零值）。<code>s == nil</code>为<code>false</code>。</p>
+<p>在上面的示例中，<code>s</code>的底层数组是一个<code>5 * sizeof(int)</code>大小，全部为0的数组，<code>len</code>为3，<code>cap</code>为5。假设此时用<code>append</code>添加一个元素<code>1</code>，则底层数组为<code>[0, 0, 0, 1, 0]</code>，<code>len</code>为4，<code>cap</code>为5。可见<code>append</code>添加元素是在<code>len(s)</code>处添加。<code>append</code>的具体行为在后面讲。</p>
+<ol start="4">
+<li>切片操作（截取）</li>
+</ol>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">s := arr[<span class="number">1</span>:<span class="number">4</span>]   <span class="comment">// 左闭右开区间，索引1, 2, 3</span></span><br><span class="line">s1 := arr[:<span class="number">4</span>]   <span class="comment">// 索引0, 1, 2, 3</span></span><br><span class="line">s2 := arr[<span class="number">1</span>:]   <span class="comment">// 假设arr最大索引为4，则s2索引为1, 2, 3, 4</span></span><br></pre></td></tr></table></figure>
+
+<p>不拷贝，共享<code>arr</code>的底层数组。<code>s == nil</code>为<code>false</code>。</p>
+<p>注意：如果从<strong>数组&#x2F;切片</strong>中截取切片，此时对切片的修改都会修改原<strong>数组&#x2F;切片</strong>（共享底层数组）。</p>
+<p><code>append</code>时如果容量<code>cap</code>已满，底层数组会进行扩容，行为类似<code>C++</code>的<code>std::vector</code>，会申请新空间、拷贝旧数据、销毁旧数组。因此如果能预测使用的空间大小，提前预分配（<code>cap &gt; len</code>）能减少性能损耗。</p>
+<p>当向这种切片<code>append</code>元素时：</p>
+<ul>
+<li>容量够用时（<code>cap &gt; len</code>）：修改原数组</li>
+</ul>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">arr := [<span class="number">5</span>]<span class="type">int</span>&#123;<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="number">5</span>&#125; <span class="comment">// 原始数组</span></span><br><span class="line">s := arr[<span class="number">1</span>:<span class="number">4</span>]                <span class="comment">// 截取数组，s = [2, 3, 4]，len=3, cap=4（cap从截取的起始位置到原始数组最后一个位置）</span></span><br><span class="line">s = <span class="built_in">append</span>(s, <span class="number">100</span>)           <span class="comment">// s 变成 [2, 3, 4, 100]</span></span><br><span class="line"><span class="comment">// 原数组 arr 变成了 [1, 2, 3, 4, 100] ！！！（索引 4 被覆盖了）</span></span><br></pre></td></tr></table></figure>
+<ul>
+<li>容量不够用时(<code>cap == len</code>）：脱离原数组</li>
+</ul>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">arr := [<span class="number">4</span>]<span class="type">int</span>&#123;<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>&#125; <span class="comment">// 原始数组</span></span><br><span class="line">s := arr[<span class="number">1</span>:<span class="number">4</span>]                <span class="comment">// 截取数组，s = [2, 3, 4]，len=3, cap=3</span></span><br><span class="line">s = <span class="built_in">append</span>(s, <span class="number">100</span>)           <span class="comment">// s 变成 [2, 3, 4, 100]</span></span><br><span class="line"><span class="comment">// 原数组 arr 仍然是 [1, 2, 3, 4]</span></span><br></pre></td></tr></table></figure>
+<p>容量不够触发扩容时，<code>s</code>的底层数组会新分配一块扩容的新空间，原<strong>数组&#x2F;切片</strong>的底层数组仍然是原空间，之后对切片操作不影响原<strong>数组&#x2F;切片</strong>。</p>
+<h4 id="切片的使用"><a href="#切片的使用" class="headerlink" title="切片的使用"></a>切片的使用</h4><ol>
+<li><code>len()</code></li>
+</ol>
+<p>返回切片中的元素个数。时间复杂度O(1)。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">length := <span class="built_in">len</span>(s)</span><br></pre></td></tr></table></figure>
+
+<ol start="2">
+<li><code>cap()</code></li>
+</ol>
+<p>返回切片中的容量（底层数组大小）。时间复杂度O(1)。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">capacity := <span class="built_in">cap</span>(s)</span><br></pre></td></tr></table></figure>
+
+<ol start="3">
+<li>添加元素<code>append</code>方法</li>
+</ol>
+<p>函数签名：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">append</span><span class="params">(slice []T, elems ...T)</span></span> []T</span><br></pre></td></tr></table></figure>
+<ul>
+<li>参数：第一个是目标切片，后面跟一个或多个同类型的元素（或通过 … 解包另一个切片）。</li>
+<li>返回值：必须接收返回值。因为 <code>append</code> 可能会修改切片的长度（<code>len</code>），甚至分配全新的底层数组。</li>
+</ul>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">s = <span class="built_in">append</span>(s, elem)</span><br></pre></td></tr></table></figure>
+<p>像这样，向切片<code>s</code>添加元素<code>elem</code>。</p>
+<p><code>append</code> 执行时，<code>Go</code> 运行时会在底层判断目标切片的 <strong>容量（</strong><code>cap</code><strong>）</strong> 是否够用，分为两种情况：</p>
+<ul>
+<li><p><code>len(s) &lt; cap(s)</code>（容量充足）：</p>
+<ul>
+<li>操作：直接将新元素写入底层数组当前<code>len</code>索引位置。</li>
+<li>结果：<code>len</code>增加<code>1</code>，<code>cap</code>不变</li>
+<li>如果其他切片和当前切片共享底层数组，追加操作会<strong>修改</strong>其他切片可见的内容。</li>
+</ul>
+</li>
+<li><p><code>len(s) == cap(s)</code>（容量耗尽、扩容）：</p>
+<ul>
+<li>操作：<ol>
+<li>在堆内存中分配一个全新的、更大的底层数组</li>
+<li>将旧底层数组中的所有元素拷贝到新底层数组</li>
+<li>将新元素写入新数组的末尾</li>
+<li>将切片的<code>ptr</code>指针指向新数组</li>
+</ol>
+</li>
+<li>结果：新的<code>len</code>和<code>cap</code>更新，旧切片与新切片<strong>彻底脱离底层共享关系</strong>。</li>
+</ul>
+</li>
+<li><p><strong>tips</strong>：扩容策略：扩容时，新容量（<code>cap</code>）并不是简单地翻倍，而是根据元素大小动态计算，以平衡内存分配次数和空间浪费：</p>
+<ul>
+<li>当<code>cap &lt; 256</code>时，新<code>cap</code> ≈ <code>2</code> * 旧<code>cap</code>（翻倍）</li>
+<li>当<code>cap &gt;= 256</code>时，增长比例逐渐趋缓，直到 ≈ <code>1.25</code>倍</li>
+</ul>
+</li>
+<li><p>使用 <code>append</code> 删除索引为<code>i</code>的元素</p>
+<ul>
+<li><code>i</code>为<code>0</code>（第一个元素）</li>
+</ul>
+</li>
+</ul>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">s = s[<span class="number">1</span>:]</span><br></pre></td></tr></table></figure>
+<ul>
+<li><code>i</code>为<code>len(s) - 1</code>（最后一个元素）</li>
+</ul>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">s = s[:<span class="built_in">len</span>(s) - <span class="number">1</span>]</span><br></pre></td></tr></table></figure>
+<ul>
+<li><code>i</code>为其他元素时</li>
+</ul>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">s = <span class="built_in">append</span>(s[:i], s[i + <span class="number">1</span>:]...)</span><br></pre></td></tr></table></figure>
+<p><strong>注意底层数组变化</strong>：<code>s = s[1:]</code>像这样，仅仅是移动指针使元素对于<code>s</code>不可见，元素空间没有释放，如果后续<code>append</code>扩容重新分配底层数组，此时会被<code>GC</code>回收。<code>s = append(s[:i], s[i + 1:]...)</code>像这样，是将底层数组<code>i</code>索引后的元素向前移动覆盖，数组末尾元素没有变化也没有释放。</p>
+<h5 id="切片的遍历"><a href="#切片的遍历" class="headerlink" title="切片的遍历"></a>切片的遍历</h5><ol>
+<li>经典<code>for</code>循环(索引遍历)<br>适合需要修改元素值的场景。</li>
+</ol>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">s := []int&#123;10, 20, 30, 40&#125;</span><br><span class="line">for i := 0; i &lt; len(s); i++ &#123;</span><br><span class="line">    fmt.Println(i, s[i])</span><br><span class="line">    s[i] = s[i] * 2 // 直接修改原切片成功</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ol start="2">
+<li><code>for range</code><br>Go 中最惯用的遍历方式，同时获取索引和元素的值拷贝。</li>
+</ol>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">s := []<span class="type">int</span>&#123;<span class="number">10</span>, <span class="number">20</span>, <span class="number">30</span>, <span class="number">40</span>&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 1. 同时取索引和值</span></span><br><span class="line"><span class="keyword">for</span> i, v := <span class="keyword">range</span> s &#123;</span><br><span class="line">    fmt.Println(i, v)</span><br><span class="line">    v = <span class="number">100</span> <span class="comment">// 无效！仅修改副本，原切片不变</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 2. 只取索引（忽略值）</span></span><br><span class="line"><span class="keyword">for</span> i := <span class="keyword">range</span> s &#123;</span><br><span class="line">    fmt.Println(s[i])</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 3. 只取值（忽略索引）</span></span><br><span class="line"><span class="keyword">for</span> _, v := <span class="keyword">range</span> s &#123;</span><br><span class="line">    fmt.Println(v)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><strong>注意</strong>：<code>for range</code>得到的是元素副本，修改不影响原切片。</p>
+<ol start="3">
+<li>Go 1.22+ 新语法（简化索引遍历）<br>从 Go 1.22 开始，<code>range</code> 支持直接遍历整数，不需要手动写 <code>i &lt; len(s)</code>，代码更简洁且避免了获取 <code>len</code> 的潜在开销陷阱。</li>
+</ol>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">s := []<span class="type">int</span>&#123;<span class="number">10</span>, <span class="number">20</span>, <span class="number">30</span>, <span class="number">40</span>&#125;</span><br><span class="line"><span class="keyword">for</span> i := <span class="keyword">range</span> <span class="built_in">len</span>(s) &#123;  <span class="comment">// i 从 0 到 len(s)-1</span></span><br><span class="line">    fmt.Println(i, s[i])</span><br><span class="line">    s[i] = <span class="number">100</span> <span class="comment">// 可直接修改</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<ol start="4">
+<li>Go 1.23+ 迭代器函数（函数式风格）<br>1.23 标准库 slices 包引入了迭代器，支持更函数式的遍历方式（需导入 slices 包）。</li>
+</ol>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> <span class="string">&quot;slices&quot;</span></span><br><span class="line"></span><br><span class="line">s := []<span class="type">int</span>&#123;<span class="number">10</span>, <span class="number">20</span>, <span class="number">30</span>, <span class="number">40</span>&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 1. 正向遍历（索引, 值）</span></span><br><span class="line"><span class="keyword">for</span> i, v := <span class="keyword">range</span> slices.All(s) &#123;</span><br><span class="line">    fmt.Println(i, v)</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 2. 仅遍历值</span></span><br><span class="line"><span class="keyword">for</span> v := <span class="keyword">range</span> slices.Values(s) &#123;</span><br><span class="line">    fmt.Println(v)</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 3. 反向遍历（索引, 值）</span></span><br><span class="line"><span class="keyword">for</span> i, v := <span class="keyword">range</span> slices.Backward(s) &#123;</span><br><span class="line">    fmt.Println(i, v)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h5 id="切片作为函数参数"><a href="#切片作为函数参数" class="headerlink" title="切片作为函数参数"></a>切片作为函数参数</h5><p><strong>注意</strong>：<strong>Go 只有值传递，没有引用传递！</strong><br>因此，如果将切片&#x2F;数组作为函数参数传入，传入的是拷贝，由于切片是<strong>引用类型</strong>，复制的是指向底层数据结构的描述符，因此修改元素影响原切片，但是一旦发生扩容，就会重新分配底层数组、与原切片失去联系！而数组是<strong>值类型</strong>，作为函数参数时<strong>深拷贝</strong>，函数内改动不影响原数组。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 1. 数组作为参数（值拷贝）</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">modifyArray</span><span class="params">(arr [3]<span class="type">int</span>)</span></span> &#123;</span><br><span class="line">    arr[<span class="number">0</span>] = <span class="number">999</span></span><br><span class="line">    fmt.Println(<span class="string">&quot;函数内部数组:&quot;</span>, arr) <span class="comment">// [999 2 3]</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 2. 切片作为参数（共享底层）</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">modifySlice</span><span class="params">(slice []<span class="type">int</span>)</span></span> &#123;</span><br><span class="line">    slice[<span class="number">0</span>] = <span class="number">999</span></span><br><span class="line">    fmt.Println(<span class="string">&quot;函数内部切片:&quot;</span>, slice) <span class="comment">// [999 2 3]</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</span><br><span class="line">    <span class="comment">// 测试数组</span></span><br><span class="line">    arr := [<span class="number">3</span>]<span class="type">int</span>&#123;<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>&#125;</span><br><span class="line">    modifyArray(arr)</span><br><span class="line">    fmt.Println(<span class="string">&quot;外部数组:&quot;</span>, arr) <span class="comment">// [1 2 3] 没变！说明是拷贝</span></span><br><span class="line"></span><br><span class="line">    <span class="comment">// 测试切片</span></span><br><span class="line">    slice := []<span class="type">int</span>&#123;<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>&#125;</span><br><span class="line">    modifySlice(slice)</span><br><span class="line">    fmt.Println(<span class="string">&quot;外部切片:&quot;</span>, slice) <span class="comment">// [999 2 3] 变了！说明共享</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>如果要让数组在函数内改动影响原数组：</p>
+<p>使用指针：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">modifyArrayPtr</span><span class="params">(arr *[3]<span class="type">int</span>)</span></span> &#123;</span><br><span class="line">    arr[<span class="number">0</span>] = <span class="number">999</span> <span class="comment">// 自动解引用，修改原数组</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</span><br><span class="line">    <span class="comment">// 测试数组</span></span><br><span class="line">    arr := [<span class="number">3</span>]<span class="type">int</span>&#123;<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>&#125;</span><br><span class="line">    modifyArray(&amp;arr)  <span class="comment">// 取地址</span></span><br><span class="line">    fmt.Println(<span class="string">&quot;外部数组:&quot;</span>, arr) </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>对于切片，如果函数内不扩容，则直接传入切片，如果需要扩容，<strong>传入切片指针</strong>或<strong>将切片作为返回值覆盖原切片</strong>。</p>
+<ol>
+<li>返回新切片<br>Go 官方和标准库最推崇的做法：<strong>函数接收切片，处理后返回一个新切片</strong>，由调用者决定是否覆盖原变量。</li>
+</ol>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 删除索引 i 的元素（保持顺序）</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">deleteElement</span><span class="params">(s []<span class="type">int</span>, i <span class="type">int</span>)</span></span> []<span class="type">int</span> &#123;</span><br><span class="line">    <span class="comment">// 注意：这里只是修改内容或长度，不影响外部容量的变化</span></span><br><span class="line">    <span class="keyword">return</span> <span class="built_in">append</span>(s[:i], s[i+<span class="number">1</span>:]...)</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</span><br><span class="line">    s := []<span class="type">int</span>&#123;<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>&#125;</span><br><span class="line">    s = deleteElement(s, <span class="number">1</span>) <span class="comment">// 调用者显式接收返回值</span></span><br><span class="line">    fmt.Println(s) <span class="comment">// [1 3 4]</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ol start="2">
+<li>直接将<strong>切片头（Slice Header）的指针</strong>传进去，函数内部可以随意修改长度、容量、甚至重新分配底层数组。</li>
+</ol>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">appendElement</span><span class="params">(s *[]<span class="type">int</span>, val <span class="type">int</span>)</span></span> &#123;</span><br><span class="line">    *s = <span class="built_in">append</span>(*s, val) <span class="comment">// 显式解引用修改</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</span><br><span class="line">    s := []<span class="type">int</span>&#123;<span class="number">1</span>, <span class="number">2</span>&#125;</span><br><span class="line">    appendElement(&amp;s, <span class="number">3</span>)</span><br><span class="line">    fmt.Println(s) <span class="comment">// [1 2 3]</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>切片没有自动解引用，如果要用切片指针按索引访问元素，使用<code>(*s)[i]</code>。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://fogjw.github.io">Fogjw</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://fogjw.github.io/2026/08/19/Go%E8%AF%AD%E8%A8%80%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/">https://fogjw.github.io/2026/08/19/Go%E8%AF%AD%E8%A8%80%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://fogjw.github.io" target="_blank">Fogjw 的博客</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/%E5%8F%8D%E6%80%9D%E6%80%BB%E7%BB%93/">反思总结</a><a class="post-meta__tags" href="/tags/Go/">Go</a></div><div class="post-share"><div class="social-share" data-image="/img/cover/CG_SP02_0304.png" data-sites="facebook,x,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related full-width" href="/2026/08/18/MiniDB%EF%BC%9A%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AA%E6%95%B0%E6%8D%AE%E5%BA%93%E5%86%85%E6%A0%B8%E2%80%94%E2%80%94%E9%A1%B9%E7%9B%AE%E5%BC%80%E5%8F%91%E6%97%A5%E8%AE%B0-5/" title="MiniDB：从零实现一个数据库内核——项目开发日记(5)"><img class="cover" src="/img/cover/CG_GE07_0101.png" onerror="onerror=null;src='/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">MiniDB：从零实现一个数据库内核——项目开发日记(5)</div></div><div class="info-2"><div class="info-item-1">2026&#x2F;08&#x2F;18今天继续讲下一个模块，IPC模块，这是本项目C++引擎部分最后一个模块，在整个系统架构中，它负责与Go后端通信。因此在讲本项目的IPC实现之前，先说说IPC是什么。 IPCIPC（Inter-Process Communication），即进程间通信。学过操作系统的都知道，进程拥有独立的虚拟内存空间，不同的进程只可见自己的虚拟内存空间，也就是进程隔离，是操作系统安全性的根基。但是从需求角度，我们难以满足于进程间完全不能通信的情况，需要进程间通信的手段，比如说不同的编程语言各有特点，但单个进程程序只能由一种语言编写、编译，要做到多语言协作，充分发挥不同编程语言的优势，必须要用到进程间通信。 所有的IPC机制本质上都在于双方通过一个都能访问的公共媒介交换字节，那么这个媒介应该由谁提供呢？内核。内核是唯一同时认识所有进程的角色，进程自己不能访问其他进程的内存，但可以通过系统调用（syscall）请求内核对公共媒介读写。 IPC通用模型：      graph LR A[进程 A&lt;br&#x2F;&gt;C++ 引擎] --&gt;|系统调用...</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/2026/08/04/MiniDB%EF%BC%9A%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AA%E6%95%B0%E6%8D%AE%E5%BA%93%E5%86%85%E6%A0%B8%E2%80%94%E2%80%94%E9%A1%B9%E7%9B%AE%E5%BC%80%E5%8F%91%E6%97%A5%E8%AE%B0-2/" title="MiniDB：从零实现一个数据库内核——项目开发日记(2)"><img class="cover" src="/img/cover/AKCG58B_A9.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-04</div><div class="info-item-2">MiniDB：从零实现一个数据库内核——项目开发日记(2)</div></div><div class="info-2"><div class="info-item-1">2026&#x2F;08&#x2F;04这段时间开发完成了WAL(WAL，即Write-Ahead Log，在修改数据之前追加写日志)模块，这个模块的作用是在应用操作之前预写日志，保证文件崩溃一致性，主要逻辑在于把多次操作划分为一个事务，事务保证在崩溃恢复后只存在事务完全没有执行和事务执行完毕两种情况。 实现思路具体考虑实现方法。 策略方面，采用STEAL + NO-FORCE组合。STEAL即未提交的事务的脏页可以刷盘，NO-FORCE即不强制要求在事务提交后立刻刷脏页。但WAL原则要求，日志必须比脏页先落盘。 数据恢复方面，采用ARIES三阶段，即Analysis（分析）、Redo（重放）、Undo（回滚）三步。 每个事务有一个事务id txn，每条日志有一个日志序列号lsn（Log Sequence Number）。 日志文件中有两种日志，一种是操作日志，一种是标识日志，操作日志即如在数据库中进行增删改操作，标识日志不进行数据库操作，只标识信息，下面列出本项目用到的标识日志字段。  begin 事务开始，表示事务的起始 commit 事务提交，表示事务结束，标示事务的完整性...</div></div></div></a><a class="pagination-related" href="/2026/07/17/Rust%E5%AD%A6%E4%B9%A0%E9%A1%B9%E7%9B%AE%E2%80%94%E2%80%94mini-redis-lite/" title="Rust学习项目——mini-redis-lite"><img class="cover" src="/img/cover/cg_sk07_0101.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-17</div><div class="info-item-2">Rust学习项目——mini-redis-lite</div></div><div class="info-2"><div class="info-item-1">Rust学习项目 ———— mini-redis-lite项目地址项目仓库地址：mini-redis-lite 前言笔者的一门有关Rust的选课要求自行选题写一个项目，本着多学一门语言是有益之举的想法，我决定不全盘Vibe Coding，在agent的指导下建立项目。 出于agent的建议，选择了复刻redis的一部分功能，即存，取，删，具体见项目仓库readme。 我学到了什么对于这个项目的核心功能本身，即存取和删除键值对的实现实际上是毫不费力的，重要的是这个项目与操作系统的相关知识联系在了一起，让我第一次切实地在编程中考虑到操作系统。 1. 同步原语为了实现多线程并发访问键值对数据，必须保证临界区的互斥访问，即同一时间，只有一个客户端线程能读写键值对，在本项目中，引入了Rust的同步原语模块 sync 中的原子引用计数 Arc 和互斥锁 Mutex 来解决这个问题。    内存存储MemoryStorage结构体定义： 1234#[derive(Clone)]pub struct MemoryStorage &#123;    data: Arc&lt;Mutex&lt;Ha...</div></div></div></a><a class="pagination-related" href="/2026/08/10/MiniDB%EF%BC%9A%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AA%E6%95%B0%E6%8D%AE%E5%BA%93%E5%86%85%E6%A0%B8%E2%80%94%E2%80%94%E9%A1%B9%E7%9B%AE%E5%BC%80%E5%8F%91%E6%97%A5%E8%AE%B0-3/" title="MiniDB：从零实现一个数据库内核——项目开发日记(3)"><img class="cover" src="/img/cover/CG_SP04_0101.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-10</div><div class="info-item-2">MiniDB：从零实现一个数据库内核——项目开发日记(3)</div></div><div class="info-2"><div class="info-item-1">2026&#x2F;08&#x2F;10这段时间完成了Lock Manager和Table Manager，这些都是MVCC的前置。 Lock Manager概念解析Lock Manager的作用是管理行锁，用于保护数据库表中的一行数据在被当前事务读写时不被其他事务读写，不过读数据其实后面是要通过MVCC的版本链读取的，所以实际的作用是防止当前事务修改一行数据时不会被其他事务同时修改。 在当前数据库的设计中，关于B+树的key-value中的key和value，key是一个表中唯一的索引，即主键id，而value是该主键对应的一行数据，比如一个账单表Order，key就是Order_id，不可重复，而value就是形如”user | item_id | price | order_time”的字符串数据，因此增删改查都是以一行数据为单位，将字符串分析为行数据，修改部分项或全部项再存入B+树，具体的解析在于后面需要做的sql模块，现在不多赘述。 那么我已经实现了B+树的Latch Crabbing，能保证多线程下对B+树的增删查改的安全性，那么为什么还需要行锁呢？ 我们必须清楚的是...</div></div></div></a><a class="pagination-related" href="/2026/08/18/MiniDB%EF%BC%9A%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AA%E6%95%B0%E6%8D%AE%E5%BA%93%E5%86%85%E6%A0%B8%E2%80%94%E2%80%94%E9%A1%B9%E7%9B%AE%E5%BC%80%E5%8F%91%E6%97%A5%E8%AE%B0-5/" title="MiniDB：从零实现一个数据库内核——项目开发日记(5)"><img class="cover" src="/img/cover/CG_GE07_0101.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-18</div><div class="info-item-2">MiniDB：从零实现一个数据库内核——项目开发日记(5)</div></div><div class="info-2"><div class="info-item-1">2026&#x2F;08&#x2F;18今天继续讲下一个模块，IPC模块，这是本项目C++引擎部分最后一个模块，在整个系统架构中，它负责与Go后端通信。因此在讲本项目的IPC实现之前，先说说IPC是什么。 IPCIPC（Inter-Process Communication），即进程间通信。学过操作系统的都知道，进程拥有独立的虚拟内存空间，不同的进程只可见自己的虚拟内存空间，也就是进程隔离，是操作系统安全性的根基。但是从需求角度，我们难以满足于进程间完全不能通信的情况，需要进程间通信的手段，比如说不同的编程语言各有特点，但单个进程程序只能由一种语言编写、编译，要做到多语言协作，充分发挥不同编程语言的优势，必须要用到进程间通信。 所有的IPC机制本质上都在于双方通过一个都能访问的公共媒介交换字节，那么这个媒介应该由谁提供呢？内核。内核是唯一同时认识所有进程的角色，进程自己不能访问其他进程的内存，但可以通过系统调用（syscall）请求内核对公共媒介读写。 IPC通用模型：      graph LR A[进程 A&lt;br&#x2F;&gt;C++ 引擎] --&gt;|系统调用...</div></div></div></a><a class="pagination-related" href="/2026/08/13/MiniDB%EF%BC%9A%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AA%E6%95%B0%E6%8D%AE%E5%BA%93%E5%86%85%E6%A0%B8%E2%80%94%E2%80%94%E9%A1%B9%E7%9B%AE%E5%BC%80%E5%8F%91%E6%97%A5%E8%AE%B0-4/" title="MiniDB：从零实现一个数据库内核——项目开发日记(4)"><img class="cover" src="/img/cover/CG_HI01_0101.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-13</div><div class="info-item-2">MiniDB：从零实现一个数据库内核——项目开发日记(4)</div></div><div class="info-2"><div class="info-item-1">2026&#x2F;08&#x2F;13 笔者发现一边写博客一边review代码效率很好，所以就这样做吧。  这次主要是完成MVCC模块。首先来介绍一下MVCC： MVCCMVCC(Multiversion Concurrency Control，多版本并发控制)，核心作用即让读操作和写操作互不阻塞，从而在保证事务隔离性的前提下，大幅提升数据库的并发性能。 具体来说，在并发环境下，MVCC通过为同一条数据保存多个版本快照，让读操作通过版本链快照读取，与写操作分离。这样一来，每个事务在执行时，看到的都是某一时间点的数据快照，保证事务的隔离级别。 为什么需要MVCC 在项目已经完成的工作中，已经实现了Lock Manager，通过行锁让读写、写写、写读操作互斥。那么实际上，已经能够通过行锁让事务实现隔离，那么为什么需要MVCC呢？MVCC到底是用来完成什么功能的呢？  MVCC主要对对读取数据精确性要求不高的场景，让读操作读版本快照与写操作并行，从而提高速度。比如说在购票软件上买票时，票数显示并不会在数据库中的票数变动时立即变动，只有用户显式刷新时才会获取最新值进行更新，比如电商平台...</div></div></div></a><a class="pagination-related" href="/2026/07/22/MiniDB%EF%BC%9A%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AA%E6%95%B0%E6%8D%AE%E5%BA%93%E5%86%85%E6%A0%B8%E2%80%94%E2%80%94%E9%A1%B9%E7%9B%AE%E5%BC%80%E5%8F%91%E6%97%A5%E8%AE%B0/" title="MiniDB：从零实现一个数据库内核——项目开发日记(1)"><img class="cover" src="/img/cover/cg_um16_0101.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-22</div><div class="info-item-2">MiniDB：从零实现一个数据库内核——项目开发日记(1)</div></div><div class="info-2"><div class="info-item-1">此文章用于记录在开发MiniDB项目中碰到的问题及解决方法，不懂的点和学习后的总结等诸多碎碎念。 项目介绍 定位：从零实现一个轻量级关系数据库，具备完整的数据库内核能力——缓冲池、索引、事务、恢复、SQL 支持。 目标：在项目开发完成时，此项目应具备能力：   支持部分SQL语句（SELECT&#x2F;INSERT&#x2F;CREATE TABLE&#x2F;DELETE） 支持并发多线程读写，MVCC 快照分离 WAL 预写日志 + ARIES 崩溃恢复 有 Web 管理面板（执行 SQL、看引擎监控）   技术栈：   C++17：模板、智能指针、RAII、移动语义 并发编程：std::thread、std::shared_mutex、std::atomic、std::condition_variable 存储引擎：B+Tree、Buffer Pool、Slotted Page、Clock-Sweep 淘汰 事务与恢复：MVCC、Lock Manager、ARIES WAL 网络通信：Unix Socket、Protocol Buffers Web 开发：Go net&#...</div></div></div></a></div></div><hr class="custom-hr"/><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="fas fa-comments fa-fw"></i><span> 评论</span></div></div><div class="comment-wrap"><div><div id="giscus-wrap"></div></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="/img/avatar.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info-name">Fogjw</div><div class="author-info-description">一个写代码的人</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">12</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">17</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">4</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/Fogjw"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/Fogjw" target="_blank" title="GitHub"><i class="fab fa-github" style="color: #24292e;"></i></a><a class="social-icon" href="https://x.com/Foggggg0924" target="_blank" title="X"><i class="fab fa-x-twitter" style="color: #000000;"></i></a><a class="social-icon" href="javascript:void(0)" target="_blank" title="QQ"><i class="fas fa-envelope" style="color: #4a7dbe;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">欢迎来到我的博客 🎉</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E8%AE%A4%E8%AF%86Go"><span class="toc-number">1.</span> <span class="toc-text">认识Go</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#go-mod%E5%92%8C%E5%8C%85%EF%BC%88package%EF%BC%89"><span class="toc-number">2.</span> <span class="toc-text">go.mod和包（package）</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%8F%98%E9%87%8F%E4%B8%8E%E5%B8%B8%E9%87%8F"><span class="toc-number">3.</span> <span class="toc-text">变量与常量</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9F%BA%E6%9C%AC%E7%B1%BB%E5%9E%8B%E4%B8%8E%E5%A4%8D%E5%90%88%E7%B1%BB%E5%9E%8B"><span class="toc-number">3.1.</span> <span class="toc-text">基本类型与复合类型</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%9B%B6%E5%80%BC"><span class="toc-number">3.1.1.</span> <span class="toc-text">零值</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%88%87%E7%89%87-T"><span class="toc-number">3.1.2.</span> <span class="toc-text">切片 []T</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%88%87%E7%89%87%E7%9A%84%E5%BA%95%E5%B1%82%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84"><span class="toc-number">3.1.2.1.</span> <span class="toc-text">切片的底层数据结构</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%88%87%E7%89%87%E7%9A%84%E5%88%9B%E5%BB%BA%E6%96%B9%E5%BC%8F"><span class="toc-number">3.1.2.2.</span> <span class="toc-text">切片的创建方式</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%88%87%E7%89%87%E7%9A%84%E4%BD%BF%E7%94%A8"><span class="toc-number">3.1.2.3.</span> <span class="toc-text">切片的使用</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#%E5%88%87%E7%89%87%E7%9A%84%E9%81%8D%E5%8E%86"><span class="toc-number">3.1.2.3.1.</span> <span class="toc-text">切片的遍历</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#%E5%88%87%E7%89%87%E4%BD%9C%E4%B8%BA%E5%87%BD%E6%95%B0%E5%8F%82%E6%95%B0"><span class="toc-number">3.1.2.3.2.</span> <span class="toc-text">切片作为函数参数</span></a></li></ol></li></ol></li></ol></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/2026/08/19/Go%E8%AF%AD%E8%A8%80%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/" title="Go语言学习笔记"><img src="/img/cover/CG_SP02_0304.png" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Go语言学习笔记"/></a><div class="content"><a class="title" href="/2026/08/19/Go%E8%AF%AD%E8%A8%80%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/" title="Go语言学习笔记">Go语言学习笔记</a><time datetime="2026-08-19T05:40:33.000Z" title="发表于 2026-08-19 13:40:33">2026-08-19</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/08/18/MiniDB%EF%BC%9A%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AA%E6%95%B0%E6%8D%AE%E5%BA%93%E5%86%85%E6%A0%B8%E2%80%94%E2%80%94%E9%A1%B9%E7%9B%AE%E5%BC%80%E5%8F%91%E6%97%A5%E8%AE%B0-5/" title="MiniDB：从零实现一个数据库内核——项目开发日记(5)"><img src="/img/cover/CG_GE07_0101.png" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="MiniDB：从零实现一个数据库内核——项目开发日记(5)"/></a><div class="content"><a class="title" href="/2026/08/18/MiniDB%EF%BC%9A%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AA%E6%95%B0%E6%8D%AE%E5%BA%93%E5%86%85%E6%A0%B8%E2%80%94%E2%80%94%E9%A1%B9%E7%9B%AE%E5%BC%80%E5%8F%91%E6%97%A5%E8%AE%B0-5/" title="MiniDB：从零实现一个数据库内核——项目开发日记(5)">MiniDB：从零实现一个数据库内核——项目开发日记(5)</a><time datetime="2026-08-18T14:52:03.000Z" title="发表于 2026-08-18 22:52:03">2026-08-18</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/08/13/MiniDB%EF%BC%9A%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AA%E6%95%B0%E6%8D%AE%E5%BA%93%E5%86%85%E6%A0%B8%E2%80%94%E2%80%94%E9%A1%B9%E7%9B%AE%E5%BC%80%E5%8F%91%E6%97%A5%E8%AE%B0-4/" title="MiniDB：从零实现一个数据库内核——项目开发日记(4)"><img src="/img/cover/CG_HI01_0101.png" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="MiniDB：从零实现一个数据库内核——项目开发日记(4)"/></a><div class="content"><a class="title" href="/2026/08/13/MiniDB%EF%BC%9A%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AA%E6%95%B0%E6%8D%AE%E5%BA%93%E5%86%85%E6%A0%B8%E2%80%94%E2%80%94%E9%A1%B9%E7%9B%AE%E5%BC%80%E5%8F%91%E6%97%A5%E8%AE%B0-4/" title="MiniDB：从零实现一个数据库内核——项目开发日记(4)">MiniDB：从零实现一个数据库内核——项目开发日记(4)</a><time datetime="2026-08-13T13:54:14.000Z" title="发表于 2026-08-13 21:54:14">2026-08-13</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/08/10/MiniDB%EF%BC%9A%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AA%E6%95%B0%E6%8D%AE%E5%BA%93%E5%86%85%E6%A0%B8%E2%80%94%E2%80%94%E9%A1%B9%E7%9B%AE%E5%BC%80%E5%8F%91%E6%97%A5%E8%AE%B0-3/" title="MiniDB：从零实现一个数据库内核——项目开发日记(3)"><img src="/img/cover/CG_SP04_0101.png" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="MiniDB：从零实现一个数据库内核——项目开发日记(3)"/></a><div class="content"><a class="title" href="/2026/08/10/MiniDB%EF%BC%9A%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AA%E6%95%B0%E6%8D%AE%E5%BA%93%E5%86%85%E6%A0%B8%E2%80%94%E2%80%94%E9%A1%B9%E7%9B%AE%E5%BC%80%E5%8F%91%E6%97%A5%E8%AE%B0-3/" title="MiniDB：从零实现一个数据库内核——项目开发日记(3)">MiniDB：从零实现一个数据库内核——项目开发日记(3)</a><time datetime="2026-08-10T13:31:23.000Z" title="发表于 2026-08-10 21:31:23">2026-08-10</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/08/05/%E7%BA%BF%E7%A8%8B%E6%B1%A0%E7%9A%84%E5%8E%9F%E7%90%86%E5%92%8C%E5%AE%9E%E7%8E%B0/" title="线程池的原理和实现"><img src="/img/cover/CG_KY01_0105.png" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="线程池的原理和实现"/></a><div class="content"><a class="title" href="/2026/08/05/%E7%BA%BF%E7%A8%8B%E6%B1%A0%E7%9A%84%E5%8E%9F%E7%90%86%E5%92%8C%E5%AE%9E%E7%8E%B0/" title="线程池的原理和实现">线程池的原理和实现</a><time datetime="2026-08-05T06:14:55.000Z" title="发表于 2026-08-05 14:14:55">2026-08-05</time></div></div></div></div></div></div></main><footer id="footer"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2026 By Fogjw</span><span class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo 8.1.2</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.6.0</a></span></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><a id="to_comment" href="#post-comment" title="前往评论"><i class="fas fa-comments"></i></a><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.6.0"></script><script src="/js/main.js?v=5.6.0"></script><div class="js-pjax"><script>(() => {
+  const parseViewBox = viewBox => {
+    if (!viewBox) return null
+    const parts = viewBox.trim().split(/[\s,]+/).map(n => Number(n))
+    if (parts.length !== 4 || parts.some(n => Number.isNaN(n))) return null
+    return parts
+  }
+
+  const getSvgViewBox = svg => {
+    const attr = parseViewBox(svg.getAttribute('viewBox'))
+    if (attr) return attr
+
+    // Fallback: use bbox to build a viewBox
+    try {
+      const bbox = svg.getBBox()
+      if (bbox && bbox.width && bbox.height) return [bbox.x, bbox.y, bbox.width, bbox.height]
+    } catch (e) {
+      // getBBox may fail on some edge cases; ignore
+    }
+
+    const w = Number(svg.getAttribute('width')) || 0
+    const h = Number(svg.getAttribute('height')) || 0
+    if (w > 0 && h > 0) return [0, 0, w, h]
+    return [0, 0, 100, 100]
+  }
+
+  const setSvgViewBox = (svg, vb) => {
+    svg.setAttribute('viewBox', `${vb[0]} ${vb[1]} ${vb[2]} ${vb[3]}`)
+  }
+
+  const clamp = (v, min, max) => Math.max(min, Math.min(max, v))
+
+  const openSvgInNewTab = ({ source, initViewBox }) => {
+    const getClonedSvg = () => {
+      if (typeof source === 'string') {
+        const template = document.createElement('template')
+        template.innerHTML = source.trim()
+        const svg = template.content.querySelector('svg')
+        return svg ? svg.cloneNode(true) : null
+      }
+      if (source && typeof source.cloneNode === 'function') {
+        return source.cloneNode(true)
+      }
+      return null
+    }
+
+    const clone = getClonedSvg()
+    if (!clone) return
+    if (initViewBox && initViewBox.length === 4) {
+      clone.setAttribute('viewBox', initViewBox.join(' '))
+    }
+    if (!clone.getAttribute('xmlns')) clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
+    if (!clone.getAttribute('xmlns:xlink') && clone.innerHTML.includes('xlink:')) {
+      clone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink')
+    }
+    // inject background to match current theme
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark'
+    const bg = getComputedStyle(document.body).backgroundColor || (isDark ? '#1e1e1e' : '#ffffff')
+    if (!clone.style.background) clone.style.background = bg
+
+    const serializer = new XMLSerializer()
+    const svgSource = serializer.serializeToString(clone)
+    const htmlSource = `<!doctype html><html><head><meta charset="utf-8" />
+      <style>
+        html, body { width: 100%; height: 100%; margin: 0; display: flex; align-items: center; justify-content: center; background: ${bg}; }
+        svg { max-width: 100%; max-height: 100%; height: auto; width: auto; }
+      </style>
+      </head><body>${svgSource}</body></html>`
+    const blob = new Blob([htmlSource], { type: 'text/html;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    window.open(url, '_blank', 'noopener')
+
+    setTimeout(() => URL.revokeObjectURL(url), 5000)
+  }
+
+  const attachMermaidViewerButton = wrap => {
+    let btn = wrap.querySelector('.mermaid-open-btn')
+    if (!btn) {
+      btn = document.createElement('button')
+      btn.type = 'button'
+      btn.className = 'mermaid-open-btn'
+      wrap.appendChild(btn)
+    }
+
+    btn.innerHTML = '<i class="fa fa-search fa-fw" aria-hidden="true"></i>'
+
+    if (!btn.__mermaidViewerBound) {
+      btn.addEventListener('click', e => {
+        e.preventDefault()
+        e.stopPropagation()
+        const svg = wrap.__mermaidOriginalSvg || wrap.querySelector('svg')
+        if (!svg) return
+        const initViewBox = wrap.__mermaidInitViewBox
+        openSvgInNewTab({ source: svg, initViewBox })
+      })
+      btn.__mermaidViewerBound = true
+    }
+  }
+
+  // Zoom around a point (px, py) in the SVG viewport (in viewBox coordinates)
+  const zoomAtPoint = (vb, factor, px, py) => {
+    const w = vb[2] * factor
+    const h = vb[3] * factor
+    const nx = px - (px - vb[0]) * factor
+    const ny = py - (py - vb[1]) * factor
+    return [nx, ny, w, h]
+  }
+
+  const initMermaidGestures = wrap => {
+    // Clean up previous event listeners and pending frames
+    if (wrap.__mermaidAbortController) {
+      wrap.__mermaidAbortController.abort()
+      if (wrap.__mermaidRafId) cancelAnimationFrame(wrap.__mermaidRafId)
+    }
+    const ac = new AbortController()
+    wrap.__mermaidAbortController = ac
+    const svg = wrap.querySelector('svg')
+    if (!svg) return
+
+    // Ensure viewBox exists so gestures always work
+    const initVb = getSvgViewBox(svg)
+    wrap.__mermaidInitViewBox = initVb
+    wrap.__mermaidCurViewBox = initVb.slice()
+    setSvgViewBox(svg, initVb)
+    // Disable default gestures to prevent scroll chaining and pinch-zoom penetration in Chrome
+    svg.style.touchAction = 'none'
+
+    // Cache BoundingClientRect, throttled on scroll to reduce reflow
+    let cachedRect = svg.getBoundingClientRect()
+    let rectDirty = false
+    const markRectDirty = () => { rectDirty = true }
+    window.addEventListener('resize', markRectDirty, { signal: ac.signal })
+    window.addEventListener('scroll', markRectDirty, { signal: ac.signal, capture: true })
+    const getRect = () => {
+      if (rectDirty) {
+        cachedRect = svg.getBoundingClientRect()
+        rectDirty = false
+      }
+      return cachedRect
+    }
+
+    // Precompute clamp bounds from initial viewBox
+    const minW = initVb[2] * 0.1
+    const maxW = initVb[2] * 10
+    const minH = initVb[3] * 0.1
+    const maxH = initVb[3] * 10
+    const clampVb = vb => {
+      const out = vb.slice()
+      out[2] = clamp(out[2], minW, maxW)
+      out[3] = clamp(out[3], minH, maxH)
+      return out
+    }
+
+    // Throttle DOM updates using requestAnimationFrame
+    let pendingVb = null
+    let rafId = null
+    const applyVb = () => {
+      if (pendingVb) {
+        wrap.__mermaidCurViewBox = pendingVb
+        setSvgViewBox(svg, pendingVb)
+        pendingVb = null
+      }
+      rafId = null
+      wrap.__mermaidRafId = null
+    }
+    const setCurVb = vb => {
+      pendingVb = clampVb(vb)
+      if (!rafId) {
+        rafId = requestAnimationFrame(applyVb)
+        wrap.__mermaidRafId = rafId
+      }
+    }
+
+    const state = {
+      pointers: new Map(),
+      startVb: null,
+      startDist: 0,
+      lastPointerX: 0,
+      lastPointerY: 0
+    }
+
+    const onPointerDown = e => {
+      if (e.pointerType === 'mouse' && e.button !== 0) return
+      svg.setPointerCapture(e.pointerId)
+      const curVb = wrap.__mermaidCurViewBox
+      state.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
+      if (state.pointers.size === 1) {
+        state.startVb = curVb.slice()
+        state.lastPointerX = e.clientX
+        state.lastPointerY = e.clientY
+      } else if (state.pointers.size === 2) {
+        const pts = [...state.pointers.values()]
+        const dx = pts[0].x - pts[1].x
+        const dy = pts[0].y - pts[1].y
+        state.startDist = Math.hypot(dx, dy)
+        state.startVb = curVb.slice()
+      }
+    }
+
+    const onPointerMove = e => {
+      if (!state.pointers.has(e.pointerId)) return
+      state.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
+      const curVb = wrap.__mermaidCurViewBox
+      const rect = getRect()
+      if (state.pointers.size === 1 && state.startVb) {
+        const p = state.pointers.values().next().value
+        const dxClient = p.x - state.lastPointerX
+        const dyClient = p.y - state.lastPointerY
+        state.lastPointerX = p.x
+        state.lastPointerY = p.y
+        const dx = dxClient * (curVb[2] / rect.width)
+        const dy = dyClient * (curVb[3] / rect.height)
+        setCurVb([curVb[0] - dx, curVb[1] - dy, curVb[2], curVb[3]])
+        return
+      }
+      if (state.pointers.size === 2 && state.startVb && state.startDist > 0) {
+        const pts = [...state.pointers.values()]
+        const dx = pts[0].x - pts[1].x
+        const dy = pts[0].y - pts[1].y
+        const dist = Math.hypot(dx, dy)
+        if (!dist) return
+        const factor = state.startDist / dist
+        const cx = (pts[0].x + pts[1].x) / 2
+        const cy = (pts[0].y + pts[1].y) / 2
+        const px = curVb[0] + (cx - rect.left) * (curVb[2] / rect.width)
+        const py = curVb[1] + (cy - rect.top) * (curVb[3] / rect.height)
+        setCurVb(zoomAtPoint(state.startVb, factor, px, py))
+      }
+    }
+
+    const onPointerUpOrCancel = e => {
+      // Release PointerCapture to avoid event capture anomalies
+      if (svg.hasPointerCapture && svg.hasPointerCapture(e.pointerId)) {
+        svg.releasePointerCapture(e.pointerId)
+      }
+      state.pointers.delete(e.pointerId)
+      if (state.pointers.size === 0) {
+        state.startVb = null
+        state.startDist = 0
+      } else if (state.pointers.size === 1) {
+        const p = state.pointers.values().next().value
+        state.lastPointerX = p.x
+        state.lastPointerY = p.y
+      }
+    }
+
+    const onWheel = e => {
+      // Prevent event bubbling from triggering external scroll
+      e.preventDefault()
+      e.stopPropagation()
+      // Normalize deltaY across deltaMode (Chrome uses pixels, Safari uses lines)
+      let delta = e.deltaY
+      if (e.deltaMode === 1) delta *= 16
+      else if (e.deltaMode === 2) delta *= 400
+
+      // Continuous zoom factor: smoother than fixed 1.1/0.9 steps
+      const zoomFactor = Math.pow(1.001, delta)
+
+      const curVb = wrap.__mermaidCurViewBox
+      const rect = getRect()
+      const px = curVb[0] + (e.clientX - rect.left) * (curVb[2] / rect.width)
+      const py = curVb[1] + (e.clientY - rect.top) * (curVb[3] / rect.height)
+      setCurVb(zoomAtPoint(curVb, zoomFactor, px, py))
+    }
+
+    const onDblClick = () => {
+      const init = wrap.__mermaidInitViewBox
+      if (init) setCurVb(init)
+    }
+
+    svg.addEventListener('pointerdown', onPointerDown, { signal: ac.signal })
+    svg.addEventListener('pointermove', onPointerMove, { signal: ac.signal })
+    svg.addEventListener('pointerup', onPointerUpOrCancel, { signal: ac.signal })
+    svg.addEventListener('pointercancel', onPointerUpOrCancel, { signal: ac.signal })
+    svg.addEventListener('wheel', onWheel, { passive: false, signal: ac.signal })
+    svg.addEventListener('dblclick', onDblClick, { signal: ac.signal })
+  }
+
+  const runMermaid = ele => {
+    window.loadMermaid = true
+    const theme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'default'
+    ele.forEach((item, index) => {
+      const mermaidSrc = item.firstElementChild
+      // Clean up event listeners before removing old SVG
+      if (item.__mermaidAbortController) {
+        item.__mermaidAbortController.abort()
+      }
+      const oldSvg = item.querySelector('svg')
+      if (oldSvg) oldSvg.remove()
+      let config = {}
+      try {
+        config = mermaidSrc.dataset.config ? JSON.parse(mermaidSrc.dataset.config) : {}
+      } catch (e) {
+        console.warn('[mermaid] failed to parse dataset.config:', e)
+      }
+      if (!config.theme) {
+        config.theme = theme
+      }
+      const mermaidThemeConfig = `%%{init: ${JSON.stringify(config)}}%%\n`
+      const mermaidID = `mermaid-${index}`
+      const mermaidDefinition = mermaidThemeConfig + mermaidSrc.textContent
+
+      const renderMermaid = svg => {
+        mermaidSrc.insertAdjacentHTML('afterend', svg)
+        if (true) initMermaidGestures(item)
+        item.__mermaidOriginalSvg = svg
+        if (true) attachMermaidViewerButton(item)
+      }
+
+      const handleError = err => {
+        console.error(`[mermaid] render failed for block #${index}:`, err)
+        const errorEl = document.createElement('div')
+        errorEl.className = 'mermaid-error'
+        errorEl.textContent = `Mermaid render error: ${err.message || err}`
+        mermaidSrc.insertAdjacentElement('afterend', errorEl)
+      }
+
+      try {
+        const renderFn = mermaid.render(mermaidID, mermaidDefinition)
+        // mermaid v9 and v10 compatibility
+        if (typeof renderFn === 'string') {
+          renderMermaid(renderFn)
+        } else {
+          renderFn.then(({ svg }) => renderMermaid(svg)).catch(handleError)
+        }
+      } catch (err) {
+        handleError(err)
+      }
+    })
+  }
+
+  const codeToMermaid = $article => {
+    const codeMermaidEle = $article.querySelectorAll('pre > code.mermaid')
+    if (codeMermaidEle.length === 0) return
+
+    codeMermaidEle.forEach(ele => {
+      const preEle = document.createElement('pre')
+      preEle.className = 'mermaid-src'
+      preEle.hidden = true
+      preEle.textContent = ele.textContent
+      const newEle = document.createElement('div')
+      newEle.className = 'mermaid-wrap'
+      newEle.appendChild(preEle)
+      ele.parentNode.replaceWith(newEle)
+    })
+  }
+
+  const loadMermaid = () => {
+    const $article = document.getElementById('article-container')
+    if (!$article) return
+
+    if (true) codeToMermaid($article)
+    const $mermaid = $article.querySelectorAll('.mermaid-wrap')
+    if ($mermaid.length === 0) return
+
+    const runMermaidFn = () => runMermaid($mermaid)
+    btf.addGlobalFn('themeChange', runMermaidFn, 'mermaid')
+    window.loadMermaid ? runMermaidFn() : btf.getScript('https://cdn.jsdelivr.net/npm/mermaid@11.16.0/dist/mermaid.min.js').then(runMermaidFn)
+  }
+
+  btf.addGlobalFn('encrypt', loadMermaid, 'mermaid')
+  window.pjax ? loadMermaid() : document.addEventListener('DOMContentLoaded', loadMermaid)
+})()</script><script>(() => {
+  const isShuoshuo = GLOBAL_CONFIG_SITE.pageType === 'shuoshuo'
+  const option = {"mapping":"pathname","reactionsEnabled":1,"emitMetadata":0,"inputPosition":"bottom","lang":"zh-CN","loading":"lazy"}
+
+  const getGiscusTheme = theme => theme === 'dark' ? 'dark' : 'light'
+
+  const createScriptElement = config => {
+    const ele = document.createElement('script')
+    Object.entries(config).forEach(([key, value]) => {
+      ele.setAttribute(key, value)
+    })
+    return ele
+  }
+
+  const loadGiscus = (el = document, key) => {
+    const mappingConfig = isShuoshuo
+      ? { 'data-mapping': 'specific', 'data-term': key }
+      : { 'data-mapping': (option && option['data-mapping']) || 'pathname' }
+
+    const giscusConfig = {
+      src: 'https://giscus.app/client.js',
+      'data-repo': 'Fogjw/Fogjw.github.io',
+      'data-repo-id': 'R_kgDOTbKKaw',
+      'data-category-id': 'DIC_kwDOTbKKa84DCJ4w',
+      'data-theme': getGiscusTheme(document.documentElement.getAttribute('data-theme')),
+      'data-reactions-enabled': '1',
+      crossorigin: 'anonymous',
+      async: true,
+      ...option,
+      ...mappingConfig
+    }
+
+    const scriptElement = createScriptElement(giscusConfig)
+
+    el.querySelector('#giscus-wrap').appendChild(scriptElement)
+
+    if (isShuoshuo) {
+      window.shuoshuoComment.destroyGiscus = () => {
+        if (el.children.length) {
+          el.innerHTML = ''
+          el.classList.add('no-comment')
+        }
+      }
+    }
+  }
+
+  const changeGiscusTheme = theme => {
+    const iframe = document.querySelector('#giscus-wrap iframe')
+    if (iframe) {
+      const message = {
+        giscus: {
+          setConfig: {
+            theme: getGiscusTheme(theme)
+          }
+        }
+      }
+      iframe.contentWindow.postMessage(message, 'https://giscus.app')
+    }
+  }
+
+  btf.addGlobalFn('themeChange', changeGiscusTheme, 'giscus')
+
+  if (isShuoshuo) {
+    'Giscus' === 'Giscus'
+      ? window.shuoshuoComment = { loadComment: loadGiscus }
+      : window.loadOtherComment = loadGiscus
+    return
+  }
+
+  if ('Giscus' === 'Giscus' || !false) {
+    if (false) btf.loadComment(document.getElementById('giscus-wrap'), loadGiscus)
+    else loadGiscus()
+  } else {
+    window.loadOtherComment = loadGiscus
+  }
+})()</script></div><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>
