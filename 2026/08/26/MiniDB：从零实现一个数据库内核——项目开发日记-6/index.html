@@ -1,0 +1,783 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>MiniDB：从零实现一个数据库内核——项目开发日记(6) | Fogjw 的博客</title><meta name="author" content="Fogjw"><meta name="copyright" content="Fogjw"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="2026&#x2F;08&#x2F;26接下来对 Go 端的设计和架构进行解释。 下面是本项目的 Go 模块目录结构： 12345678api&#x2F;├── main.go           入口：路由 + CORS + 静态托管 web&#x2F;dist + 优雅关闭├── auth&#x2F;             认证：bcrypt + JWT(HS256) + _users 系统表自举 + Bearer 中间">
+<meta property="og:type" content="article">
+<meta property="og:title" content="MiniDB：从零实现一个数据库内核——项目开发日记(6)">
+<meta property="og:url" content="https://fogjw.github.io/2026/08/26/MiniDB%EF%BC%9A%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AA%E6%95%B0%E6%8D%AE%E5%BA%93%E5%86%85%E6%A0%B8%E2%80%94%E2%80%94%E9%A1%B9%E7%9B%AE%E5%BC%80%E5%8F%91%E6%97%A5%E8%AE%B0-6/index.html">
+<meta property="og:site_name" content="Fogjw 的博客">
+<meta property="og:description" content="2026&#x2F;08&#x2F;26接下来对 Go 端的设计和架构进行解释。 下面是本项目的 Go 模块目录结构： 12345678api&#x2F;├── main.go           入口：路由 + CORS + 静态托管 web&#x2F;dist + 优雅关闭├── auth&#x2F;             认证：bcrypt + JWT(HS256) + _users 系统表自举 + Bearer 中间">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://fogjw.github.io/img/cover/CG_AO03_0101.png">
+<meta property="article:published_time" content="2026-08-26T07:33:39.000Z">
+<meta property="article:modified_time" content="2026-08-26T12:01:27.901Z">
+<meta property="article:author" content="Fogjw">
+<meta property="article:tag" content="Go">
+<meta property="article:tag" content="反思总结">
+<meta property="article:tag" content="数据库">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://fogjw.github.io/img/cover/CG_AO03_0101.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "MiniDB：从零实现一个数据库内核——项目开发日记(6)",
+  "url": "https://fogjw.github.io/2026/08/26/MiniDB%EF%BC%9A%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AA%E6%95%B0%E6%8D%AE%E5%BA%93%E5%86%85%E6%A0%B8%E2%80%94%E2%80%94%E9%A1%B9%E7%9B%AE%E5%BC%80%E5%8F%91%E6%97%A5%E8%AE%B0-6/",
+  "image": "https://fogjw.github.io/img/cover/CG_AO03_0101.png",
+  "datePublished": "2026-08-26T07:33:39.000Z",
+  "dateModified": "2026-08-26T12:01:27.901Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "Fogjw",
+      "url": "https://fogjw.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="/img/avatar.png"><link rel="canonical" href="https://fogjw.github.io/2026/08/26/MiniDB%EF%BC%9A%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AA%E6%95%B0%E6%8D%AE%E5%BA%93%E5%86%85%E6%A0%B8%E2%80%94%E2%80%94%E9%A1%B9%E7%9B%AE%E5%BC%80%E5%8F%91%E6%97%A5%E8%AE%B0-6/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=5.6.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        const data = { value }
+
+        if (ttl != null) {
+          data.expiry = Date.now() + ttl * 86400000
+        }
+
+        localStorage.setItem(key, JSON.stringify(data))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false,"highlightFullpage":false,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'MiniDB：从零实现一个数据库内核——项目开发日记(6)',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><style>#page-header:not(.full_page){background-position:center top -150px!important} .card-info-social-icons{flex-direction:column!important;align-items:stretch!important;gap:4px!important;padding:0 16px 16px} .card-info-social-icons .social-icon{display:flex!important;align-items:center!important;gap:8px!important;padding:6px 12px!important;border-radius:6px!important;transition:background .2s;width:auto!important;height:auto!important;font-size:14px!important} .card-info-social-icons .social-icon:hover{background:var(--btn-bg)!important;color:var(--btn-color)!important} .card-info-social-icons .social-icon i{font-size:20px!important;width:24px!important;text-align:center!important} .card-info-social-icons .social-icon::after{content:attr(title);font-size:14px} .card-info-social-icons .social-icon[title*="QQ"]{pointer-events:none;opacity:.7} .card-info-social-icons .social-icon[title*="QQ"]::after{content:"1778357215@qq.com"} </style><meta name="generator" content="Hexo 8.1.2"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(/img/BG014A.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="/img/avatar.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">12</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">16</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">4</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fas fa-link"></i><span> 友链</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> 关于</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg fixed" id="page-header" style="background-image: url(/img/cover/CG_AO03_0101.png);"><nav id="nav"><span id="blog-info"><a class="nav-site-title" href="/"><span class="site-name">Fogjw 的博客</span></a><a class="nav-page-title" href="/"><span class="site-name">MiniDB：从零实现一个数据库内核——项目开发日记(6)</span><span class="site-name"><i class="fa-solid fa-circle-arrow-left"></i><span>  返回首页</span></span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fas fa-link"></i><span> 友链</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> 关于</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">MiniDB：从零实现一个数据库内核——项目开发日记(6)</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-08-26T07:33:39.000Z" title="发表于 2026-08-26 15:33:39">2026-08-26</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-08-26T12:01:27.901Z" title="更新于 2026-08-26 20:01:27">2026-08-26</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/%E9%A1%B9%E7%9B%AE%E6%97%A5%E8%AE%B0/">项目日记</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><h1 id="2026-08-26"><a href="#2026-08-26" class="headerlink" title="2026&#x2F;08&#x2F;26"></a>2026&#x2F;08&#x2F;26</h1><p>接下来对 Go 端的设计和架构进行解释。</p>
+<p>下面是本项目的 Go 模块目录结构：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">api/</span><br><span class="line">├── main.<span class="keyword">go</span>           入口：路由 + CORS + 静态托管 web/dist + 优雅关闭</span><br><span class="line">├── auth/             认证：bcrypt + JWT(HS256) + _users 系统表自举 + Bearer 中间件</span><br><span class="line">├── tenant/           多租户：_databases/_catalog 系统表 + SQL 改写 + 物理名分配 + reconcile</span><br><span class="line">├── metrics/          平台指标：请求计数 + 慢查询 + QPS 窗口 + /api/metrics（admin）</span><br><span class="line">├── handler/          HTTP 层：/api/query 事务分派 + 租户预处理集成 + 指标埋点</span><br><span class="line">├── engine/           引擎 IPC 客户端：连接池（预创建+空闲保活）+ 帧收发 + 事务亲和</span><br><span class="line">└── enginepb/         protoc 生成的官方 protobuf 代码（提交仓库）</span><br></pre></td></tr></table></figure>
+
+<p>介绍顺序按包依赖关系顺序，从底层向上层介绍。</p>
+<h2 id="enginepb"><a href="#enginepb" class="headerlink" title="enginepb"></a>enginepb</h2><p>此<code>Package</code>是引入了官方<code>Protobuf</code>库，基于<code>.proto</code>文件生成的代码，用于将 C++ 引擎通过 <code>Unix socket</code> 传递来的字节流做解码和将 Go 端对 C++ 引擎的请求做编码。由于完全由官方库生成，这里不做源码解析，如果手写可以参考 C++ 引擎端的实现方法。</p>
+<h2 id="engine"><a href="#engine" class="headerlink" title="engine"></a>engine</h2><p>此<code>Package</code>依赖<code>enginepb</code>，作用是作为 IPC 的客户端，利用<code>enginepb</code>的编码、解码能力，与 C++ 引擎通信，发送请求接收回复。</p>
+<p>同时考虑到 C++ 引擎侧的设计是线程与事务强绑定，即同一事务在<code>begin</code>到<code>commit</code>或<code>abort</code>期间，占用同一个线程，因此并发能力会比像 MySQL 那样的线程与事务解耦，事务只在需要执行某指令时交给线程执行的设计弱。为了配合 C++ 引擎侧的设计，Go 端同步使用连接池，限制连接数。Go 端的连接池大小与 C++ 引擎侧保持一致，获得最大并发。</p>
+<p>因为引擎局限性，全局并行最多是线程池大小个事务，将 Go 端的连接池设计的更大只会导致没有拿到线程的事务饥饿，在实测中如果将 Go 端的连接池大小调的更大，会导致事务饥饿，严重时死锁。</p>
+<h3 id="连接池"><a href="#连接池" class="headerlink" title="连接池"></a>连接池</h3><p>在设计中，事务分为两种，一种是单句事务，一种是多句事务，如果用户没有用显式的<code>begin</code>来开启事务，则执行的每条<code>SQL</code>都会自动<code>begin</code>，执行<code>SQL</code>，然后<code>commit</code>。当用户显式使用<code>begin</code>时，如果连续有时间T没有操作，系统会自动<code>RollBack</code>事务，释放连接（时间 T 可由管理者调整）。这样是为了在当前连接数少的情况下充分利用连接数，以求更高的并发，防止有用户挂机。</p>
+<ol>
+<li>预连接</li>
+</ol>
+<p>预连接是在Go 端启动之后即创建连接池大小个空闲连接，与懒连接相比的好处在于预连接让首次请求连接不需要等待创建连接，提高了首次请求的效率。</p>
+<p>实现上有一点细节值得说明：预创建是<strong>异步</strong>的，即 <code>NewPool</code> 立即返回，填池在后台 goroutine 中进行，每条连接独立拨号，单条失败静默跳过。这样做保留了懒连接的「引擎未启动时后端照常启动」的容错——后端起来时引擎还没就绪，预建全部失败，池子为空，行为等价于旧版懒连接（借出时才拨号，报错后引擎恢复自动可用）；引擎先启动时后台几毫秒就填满池。异步化后还要注意预建与并发借出的配额竞态：入池前要检查 <code>total &lt; maxConns</code>，否则并发 <code>acquire</code> 已抢先新建满额时预建会把连接总数撑超上限。</p>
+<ol start="2">
+<li>事务回收</li>
+</ol>
+<p>前面已经说到，当用户占着连接不操作时，超时时会自动<code>Rollback</code>，此时会需要回收被事务占着的连接，逻辑简单来说就是异步启动一个循环，<code>select</code>从计时器通道传来的计时信号和关闭计时器信号，接收到计时器信号时，就调用一个函数，扫描所有连接，如果超时就进行回收，将连接断开之后，引擎侧检测到事务连接中途断开会自动回滚。</p>
+<p>这里的并发安全论证值得记录：回收器只处理「最近活跃时间已超过超时」的事务，而一个事务只要有过请求，它的活跃时间就会被刷新——所以被回收的事务此刻<strong>不可能有在途请求</strong>，<code>Close</code> 不会与帧收发发生竞态。回收后连接被关闭、事务从注册表移除，并记入 <code>timedOut</code> 表（保留一段时间），之后使用者再拿这个 <code>txn_id</code> 操作，会收到明确的「事务因空闲超时被回收」错误，而不是笼统的「无效事务 id」——两者用不同的错误类型区分，前端可以给出更准确的提示。</p>
+<ol start="3">
+<li>保活连接</li>
+</ol>
+<p>连接过程中可能发生错误，比如请求异常、引擎退出等，为了保证连接池中的空闲连接都是可用的，需要进行保活，保活扫描在连接池初始化的时候进行一次，之后每经过设定的保活时间间隔（默认为30s）进行一次。保活扫描会将每个空闲连接取出来异步做一次存活探测，只有读取数据阻塞到超时才是正常可用的，如果是其他情况，比如连接本身断开了，或者读到了异常数据，都是不正常的连接，保守判定为死连接。扫描之后把正常连接放回连接池，死连接清除掉新建连接到连接池。</p>
+<p>这里有一个值得玩味的设计：<strong>探测「活着」的判据是读超时</strong>。因为引擎空闲时不会主动发任何数据，所以对一条活连接执行读操作，结果必然是阻塞直到超时——读超时反而是「活着」的证据；反之，读到 EOF（连接被对端关闭）、读到意外数据（协议错乱），都是异常。这也解释了为什么保活探测不能用 <code>SELECT 1</code> 这种 SQL 探测：引擎有个已知 bug，无 FROM 的 SELECT 会挂起连接，探测把自己挂死。零副作用的读探测是最安全的。</p>
+<ol start="4">
+<li>取连接</li>
+</ol>
+<p>设置一个等待上限时间，池满时最多等待该时间，超时报错，避免无限等待。然后循环尝试获取连接，每轮连接中，如果有空闲连接则获取空闲连接，如果连接池不满则创建连接，如果池满，则加入等待队列，值得注意的是，加入等待队列的是一个<code>chan struct{}</code>，之前的Go 学习笔记有提到<strong>空结构体</strong>可以作为信号，本身是不占内存空间的，这里则是创建一个接收空结构体的通道，加入连接池等待队列，然后阻塞在<code>select</code>上，如果接收到通道传来的信号就进行下一轮循环尝试获取连接，或者超时从队列移除通道，返回超时报错。这里很能体会到Go 协程和通道的协作作用，在这里表现出了类似C++ 条件变量的作用，但是更加灵活易懂。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(p *Pool)</span></span> acquire(ctx context.Context) (*Conn, <span class="type">error</span>) &#123;</span><br><span class="line">	waitCtx, cancel := context.WithTimeout(ctx, p.acquireWait)</span><br><span class="line">	<span class="keyword">defer</span> cancel()</span><br><span class="line">	<span class="keyword">for</span> &#123;</span><br><span class="line">		p.mu.Lock()</span><br><span class="line">		<span class="keyword">if</span> <span class="built_in">len</span>(p.idle) &gt; <span class="number">0</span> &#123;          <span class="comment">// 1. 优先复用空闲连接（保持长连接）</span></span><br><span class="line">			c := p.idle[<span class="built_in">len</span>(p.idle)<span class="number">-1</span>]</span><br><span class="line">			p.idle = p.idle[:<span class="built_in">len</span>(p.idle)<span class="number">-1</span>]</span><br><span class="line">			p.mu.Unlock()</span><br><span class="line">			<span class="keyword">return</span> c, <span class="literal">nil</span></span><br><span class="line">		&#125;</span><br><span class="line">		<span class="keyword">if</span> p.total &lt; p.maxConns &#123;     <span class="comment">// 2. 未达上限则新建</span></span><br><span class="line">			p.total++</span><br><span class="line">			p.mu.Unlock()</span><br><span class="line">			c := newConn(p.socketPath, p.dialTimeout, p.readTimeout)</span><br><span class="line">			<span class="keyword">if</span> err := c.dial(); err != <span class="literal">nil</span> &#123;</span><br><span class="line">				p.mu.Lock(); p.total--; p.mu.Unlock()</span><br><span class="line">				<span class="keyword">return</span> <span class="literal">nil</span>, err</span><br><span class="line">			&#125;</span><br><span class="line">			<span class="keyword">return</span> c, <span class="literal">nil</span></span><br><span class="line">		&#125;</span><br><span class="line">		ch := <span class="built_in">make</span>(<span class="keyword">chan</span> <span class="keyword">struct</span>&#123;&#125;, <span class="number">1</span>)  <span class="comment">// 3. 达上限：进入 FIFO 等待队列</span></span><br><span class="line">		p.waitCh = <span class="built_in">append</span>(p.waitCh, ch)</span><br><span class="line">		p.mu.Unlock()</span><br><span class="line">		<span class="keyword">select</span> &#123;</span><br><span class="line">		<span class="keyword">case</span> &lt;-ch:                    <span class="comment">// 有人归还：下一轮再试</span></span><br><span class="line">		<span class="keyword">case</span> &lt;-waitCtx.Done():</span><br><span class="line">			p.removeWaiter(ch)        <span class="comment">// 超时：从队列移除自己</span></span><br><span class="line">			<span class="keyword">return</span> <span class="literal">nil</span>, errors.New(<span class="string">&quot;acquire connection: wait timeout&quot;</span>)</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ol start="5">
+<li>归还连接</li>
+</ol>
+<p>如果连接损坏，丢弃连接，连接池中连接总数减一，这样取连接的协程会通过判断池不满建新连接在填满池。连接正常时将空闲下来的连接加入连接池的空闲连接切片，然后判断，如果等待队列中有通道，取队头通道传入信号唤醒。</p>
+<p><strong>为什么损坏连接必须丢弃、不能放回池复用</strong>？因为读帧读了一半失败（长度前缀读完、body 没读完）时，这条连接上的字节流状态是未知的——放回池复用，下一个请求可能读到残留的半帧垃圾。所以请求失败（读&#x2F;写错误）时给连接打上 <code>broken</code> 标记，归还时直接丢弃、配额减一，由 acquire 的「新建」分支补上。另外，读失败<strong>不重发</strong>：这条 SQL 可能已经被引擎执行了（响应帧在传输途中丢了），重发会产生重复副作用（非幂等），所以错误如实返回上层。唯一允许重发的是写失败且是自动事务——帧还没完整到达引擎，引擎绝不会执行，此时重建连接整帧重发一次是安全的。</p>
+<p>其他的基本上都是一些辅助功能方法了，而前面也提到事务有单句事务和多句事务，在用户没有显式执行<code>begin</code>时都默认每句<code>SQL</code>是单句事务，单句事务的<code>SQL</code>执行内部会取一条连接，调用连接执行<code>api</code>，然后归还连接，而多句事务则在<code>begin</code>之后保持连接，直到用户<code>commit</code>或<code>rollback</code>或超时<code>abort</code>。</p>
+<p>多句事务（显式事务）在代码里体现为三个入口：<code>Begin</code> 取一条连接并绑定到新分配的 <code>txnID</code>（全局原子自增），<code>TxnQuery</code> 按 <code>txnID</code> 取回那条连接执行语句（事务亲和），<code>EndTxn</code> 执行 COMMIT&#x2F;ROLLBACK 后归还连接。这里最核心的约束是：<strong>事务必须始终走同一条连接</strong>，因为引擎的事务是连接级会话（C++ 侧 SQLExecutor 与连接绑定），换连接 &#x3D; 换了会话 &#x3D; 事务丢失。</p>
+<h2 id="auth"><a href="#auth" class="headerlink" title="auth"></a>auth</h2><p>这一层用于<strong>用户认证</strong>，由于设计的是<strong>多租户</strong>，因此必须要存储用户信息以及做认证。同时因为这本身就是一个数据库项目，自然是不愿意再在现在引入其他数据库服务的，在后端直接用其他存储方式也会出现崩溃一致性问题，再去实现一次 <strong>WAL</strong> 太费力也太绕远路，因此这里采取的设计是引擎自举，Go 端会在C++ 引擎侧注册一个用户表来管理用户数据，通过C++ 引擎侧天然实现的数据库服务在存储用户信息。</p>
+<p>具体做法是 <code>EnsureSchema</code>：启动时执行 <code>SHOW TABLES</code> 查 <code>_users</code> 表是否存在，不存在则 <code>CREATE TABLE _users (id INT, username VARCHAR(32), password_hash VARCHAR(95), is_admin INT, created_at VARCHAR(32))</code>。这个过程是<strong>懒自举</strong>的：引擎未启动时失败，首请求自动重试（失败后重置 <code>sync.Once</code>，下次调用再试）。这样后端启动不依赖引擎先就绪，顺序无关。</p>
+<p>另外上层Go 端与React前端的通信是靠 <strong>HTTP</strong> 请求和响应的，如果每个用户维护一条长连接，会造成极大的开销，且连接一旦断开，用户必须重新登录，这显然不会带来良好的使用体验，因此设计为<strong>无状态的 HTTP 请求与响应</strong>，在信息中加入<strong>验证身份的 token</strong> ，后端会通过对 <strong>token</strong> 验证来确定是哪个用户发来的请求，从而能精准地对该用户账户下的数据库做相应操作。</p>
+<h3 id="JWT"><a href="#JWT" class="headerlink" title="JWT"></a>JWT</h3><p><strong>JWT</strong>（JSON Web Token） 是一种紧凑且自包含的开放标准，用于在各方之间以 <strong>JSON</strong> 对象的形式安全地传输信息。因为其体积小、结构简单，特别适用于分布式系统的身份认证和授权场景。</p>
+<p>JWT 由三段组成，用点号分隔：<code>header.payload.signature</code>。header 声明签名算法（本项目是 <code>HS256</code>）；payload 是携带的信息（本项目是用户身份）；signature 是用密钥对前两段算出的签名，<strong>签名是防篡改的关键</strong>——任何一方改了 payload 内容，签名就对不上，服务器验签直接拒绝。</p>
+<p><strong>JWT 为什么能实现无状态认证？</strong> 因为服务器在签发 token 时用密钥算了一次签名，之后每个请求验签时<strong>重算签名做比对</strong>——签名对得上，说明这个 token 确实是我们签发的、且内容没被篡改过。验签全程只做 HMAC 计算，不查任何存储，这就是「无状态」：服务器不保存会话，身份随请求携带，验签即认证。代价是<strong>无法即时吊销</strong>：token 在过期前始终有效，要强制全员下线只能换密钥（代价是所有人都要重新登录）。</p>
+<p>本项目里 JWT 的具体用法：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 载荷：用户身份 + 过期时间</span></span><br><span class="line"><span class="keyword">type</span> Claims <span class="keyword">struct</span> &#123;</span><br><span class="line">	UserID   <span class="type">uint64</span> <span class="string">`json:&quot;uid&quot;`</span></span><br><span class="line">	Username <span class="type">string</span> <span class="string">`json:&quot;uname&quot;`</span></span><br><span class="line">	IsAdmin  <span class="type">bool</span>   <span class="string">`json:&quot;admin&quot;`</span></span><br><span class="line">	Exp      <span class="type">int64</span>  <span class="string">`json:&quot;exp&quot;`</span> <span class="comment">// Unix 秒</span></span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">const</span> TokenTTL = <span class="number">24</span> * time.Hour <span class="comment">// 令牌有效期 24h</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 签发：HS256 签名</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">SignJWT</span><span class="params">(secret []<span class="type">byte</span>, c Claims)</span></span> (<span class="type">string</span>, <span class="type">error</span>) &#123;</span><br><span class="line">	header := b64enc([]<span class="type">byte</span>(<span class="string">`&#123;&quot;alg&quot;:&quot;HS256&quot;,&quot;typ&quot;:&quot;JWT&quot;&#125;`</span>))</span><br><span class="line">	payload, _ := json.Marshal(c)</span><br><span class="line">	body := header + <span class="string">&quot;.&quot;</span> + b64enc(payload)</span><br><span class="line">	mac := hmac.New(sha256.New, secret)</span><br><span class="line">	mac.Write([]<span class="type">byte</span>(body))</span><br><span class="line">	<span class="keyword">return</span> body + <span class="string">&quot;.&quot;</span> + b64enc(mac.Sum(<span class="literal">nil</span>)), <span class="literal">nil</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 验签：重算签名比对（恒定时间，防时序攻击）+ 查过期</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">VerifyJWT</span><span class="params">(secret []<span class="type">byte</span>, token <span class="type">string</span>)</span></span> (*Claims, <span class="type">error</span>) &#123;</span><br><span class="line">	parts := strings.Split(token, <span class="string">&quot;.&quot;</span>)</span><br><span class="line">	<span class="keyword">if</span> <span class="built_in">len</span>(parts) != <span class="number">3</span> &#123; <span class="keyword">return</span> <span class="literal">nil</span>, ErrBadToken &#125;</span><br><span class="line">	mac := hmac.New(sha256.New, secret)</span><br><span class="line">	mac.Write([]<span class="type">byte</span>(parts[<span class="number">0</span>] + <span class="string">&quot;.&quot;</span> + parts[<span class="number">1</span>]))</span><br><span class="line">	sig, _ := base64.RawURLEncoding.DecodeString(parts[<span class="number">2</span>])</span><br><span class="line">	<span class="keyword">if</span> !hmac.Equal(sig, mac.Sum(<span class="literal">nil</span>)) &#123; <span class="keyword">return</span> <span class="literal">nil</span>, ErrBadToken &#125;</span><br><span class="line">	<span class="comment">// ...解码 payload、检查 exp...</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>有几个点容易踩坑，单独说：</p>
+<ul>
+<li><strong><code>MINIDB_JWT_SECRET</code> 是签名密钥，不是登录密码</strong>。它决定「谁能签发合法令牌」，泄露 &#x3D; 任何人都能伪造任意用户身份。这个环境变量的语义和 <code>MINIDB_ADMIN_USER</code>（注册制管理员标记）很容易被混淆。</li>
+<li><strong>缺省自动生成</strong>：<code>New</code> 时若密钥为空，随机生成 32 字节并打日志警告。这意味着<strong>重启后旧 token 全部失效</strong>，用户要重新登录。对演示项目可接受，甚至是个特性；Docker 部署时建议固定密钥保持登录态稳定。</li>
+<li><strong>为什么登录之后每次请求都不用查数据库</strong>：登录那一次查 <code>_users</code> 表用 bcrypt 校验密码（见下节），签发 token；之后 24 小时内每个请求只做验签（纯 CPU），身份信息（uid&#x2F;uname&#x2F;admin）直接从 token 载荷里来。要留意 trade-off：用户改密码后，已签发的 token 在过期前依然有效（服务器不查库、不知道密码变了）。</li>
+</ul>
+<h3 id="bcrypt"><a href="#bcrypt" class="headerlink" title="bcrypt"></a>bcrypt</h3><p><strong>bcrypt</strong> 是一种密码哈希算法，设计目标就是对抗暴力破解：内置<strong>盐</strong>（salt）——每个密码哈希前混入随机数，相同的密码得到不同的哈希，预计算彩虹表失效；并且<strong>计算代价可调</strong>（cost 因子），让每次哈希故意变慢（毫秒级），攻击者逐条爆破的速度被压制几个数量级。</p>
+<p>与它相对的是把密码直接存明文（泄露即灾难）或可逆加密（密钥泄露即全部还原），以及不慢的普通哈希如 MD5&#x2F;SHA（GPU 每秒可算几十亿次，秒破弱密码）。bcrypt 是「慢哈希 + 加盐」的行业标准选择。</p>
+<p>项目里用法很直接：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 注册：生成哈希，只存哈希不存明文</span></span><br><span class="line">hash, _ := bcrypt.GenerateFromPassword([]<span class="type">byte</span>(password), bcrypt.DefaultCost)</span><br><span class="line"><span class="comment">// INSERT INTO _users VALUES (..., &#x27;&lt;hash&gt;&#x27;, ...)</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 登录：取出哈希，比对</span></span><br><span class="line">err := bcrypt.CompareHashAndPassword([]<span class="type">byte</span>(row[<span class="number">2</span>]), []<span class="type">byte</span>(password))</span><br></pre></td></tr></table></figure>
+
+<p><strong>踩过的坑：行总长硬约束逼出来的用户名长度限制。</strong> 引擎的行总长上限是 95 字节（含分隔符，见 SQL 模块文档），而 bcrypt 哈希固定 60 字符、<code>created_at</code> 用 UTC RFC3339 恰好 20 字符、再加上 id 列与行内分隔符，实测固定占掉 86 字节——留给用户名只有 9 字节，于是用户名被收紧到 <strong>3-9 位</strong>。最初设计是 3-32 位，联调时插入直接报行超长，排查后才定位到这个连锁约束。另外 <code>created_at</code> 必须用 UTC RFC3339（20 字符），本地时区版本是 25 字符，一样超限——这些都是「元数据也住在业务表里」的代价。</p>
+<h3 id="注册与登录"><a href="#注册与登录" class="headerlink" title="注册与登录"></a>注册与登录</h3><p>注册的完整流程：<strong>白名单校验 → 串行化查重 → bcrypt 哈希 → INSERT → 签发 token（注册即登录）</strong>。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(s *Store)</span></span> Register(ctx, username, password) &#123;</span><br><span class="line">	<span class="keyword">if</span> !usernameRe.MatchString(username) &#123; <span class="keyword">return</span> err &#125;  <span class="comment">// ^[a-zA-Z0-9_]&#123;3,9&#125;$</span></span><br><span class="line">	<span class="keyword">if</span> <span class="built_in">len</span>(password) &lt; <span class="number">6</span> &#123; <span class="keyword">return</span> err &#125;</span><br><span class="line">	s.regMu.Lock(); <span class="keyword">defer</span> s.regMu.Unlock()               <span class="comment">// 注册串行化</span></span><br><span class="line">	s.EnsureSchema(ctx)</span><br><span class="line">	res := Query(<span class="string">&quot;SELECT * FROM _users WHERE username = &#x27;&quot;</span>+username+<span class="string">&quot;&#x27;&quot;</span>)</span><br><span class="line">	<span class="keyword">if</span> <span class="built_in">len</span>(res.Rows) &gt; <span class="number">0</span> &#123; <span class="keyword">return</span> <span class="string">&quot;用户名已存在&quot;</span> &#125;</span><br><span class="line">	hash := bcrypt.GenerateFromPassword(password, DefaultCost)</span><br><span class="line">	Query(<span class="string">&quot;INSERT INTO _users VALUES (&lt;nextID&gt;, &#x27;&lt;username&gt;&#x27;, &#x27;&lt;hash&gt;&#x27;, &lt;isAdmin&gt;, &#x27;&lt;now&gt;&#x27;)&quot;</span>)</span><br><span class="line">	<span class="keyword">return</span> SignJWT(secret, Claims&#123;...&#125;)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>两个设计点值得记录：</p>
+<ul>
+<li><strong>为什么注册要串行化（互斥锁）</strong>：引擎的 <code>INSERT</code> 语义是「同主键覆盖」而不是唯一约束报错，所以「用户名唯一」不能靠引擎保证，只能靠「查重 + 插入」两步——而两步之间如果不加锁，并发注册同名用户会双双通过查重、后写覆盖先写，用户名不唯一。串行化把并发窗口消除，代价是注册路径吞吐低（注册本来就不是高频操作，可接受）。</li>
+<li><strong>用户名白名单同时是注入防线</strong>：<code>^[a-zA-Z0-9_]{3,9}$</code> 直接消除了 SQL 拼接注入面——用户名里不可能出现引号、分号，拼进 <code>WHERE username = &#39;...&#39;</code> 永远安全。这是「既然要约束命名，就顺手把注入面关掉」的一举两得。</li>
+</ul>
+<p>登录流程对称：<code>SELECT</code> 取哈希 → <code>bcrypt.CompareHashAndPassword</code> 比对 → 签发 token。这里有一个防枚举的细节：用户不存在、密码错误、用户行损坏，<strong>统一返回「用户名或密码错误」</strong>，攻击者无法通过报错差异探测某个用户名是否注册过。</p>
+<h3 id="鉴权中间件"><a href="#鉴权中间件" class="headerlink" title="鉴权中间件"></a>鉴权中间件</h3><p>JWT 的验证被封装成 <code>RequireAuth</code> 中间件，挂在所有需要登录的 API 上：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">RequireAuth</span><span class="params">(secret []<span class="type">byte</span>, next http.Handler)</span></span> http.Handler &#123;</span><br><span class="line">	<span class="keyword">return</span> http.HandlerFunc(<span class="function"><span class="keyword">func</span><span class="params">(w, r)</span></span> &#123;</span><br><span class="line">		token, ok := bearerToken(r)      <span class="comment">// 解析 Authorization: Bearer &lt;token&gt;</span></span><br><span class="line">		<span class="keyword">if</span> !ok &#123; <span class="keyword">return</span> unauthorized &#125;</span><br><span class="line">		claims, err := VerifyJWT(secret, token)  <span class="comment">// 验签 + 查过期</span></span><br><span class="line">		<span class="keyword">if</span> err != <span class="literal">nil</span> &#123; <span class="keyword">return</span> unauthorized &#125;</span><br><span class="line">		ctx := context.WithValue(r.Context(), claimsKey, claims) <span class="comment">// 身份注入 context</span></span><br><span class="line">		next.ServeHTTP(w, r.WithContext(ctx))</span><br><span class="line">	&#125;)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>中间件把验证通过的 <code>Claims</code> 注入请求 context，后续 handler 用 <code>auth.ClaimsFrom(r)</code> 取身份。所有租户操作（建库、查表、执行 SQL）都从 claims 拿 <code>UserID</code>，从而完成「这个请求是哪个用户发来的」的判定。</p>
+<p><code>/api/me</code> 接口是另一个受益者：前端刷新页面后，重新请求 <code>/api/me</code> 从 token 载荷恢复用户名和 <code>is_admin</code> 角色——<strong>不查库</strong>，管理员角色刷新不丢。</p>
+<h2 id="tenant"><a href="#tenant" class="headerlink" title="tenant"></a>tenant</h2><p>这一层实现<strong>多租户</strong>，是整个 Go 端业务逻辑最重的部分。</p>
+<h3 id="多租户"><a href="#多租户" class="headerlink" title="多租户"></a>多租户</h3><p><strong>多租户（Multi-tenancy）</strong> 指一套系统同时服务多个互不相关的用户&#x2F;组织（租户），每个租户的数据彼此隔离、互不可见，但共享底层资源。典型例子是云数据库：不同客户买同一台机器上的数据库实例，各自建库建表，互不干扰。</p>
+<p>本项目是<strong>单引擎共享</strong>的租户模型：所有用户共用同一个 C++ 引擎进程，隔离靠平台层（Go 端）实现。这带来一个根本问题：<strong>引擎是通用 SQL 引擎，它不认识「用户」</strong>——引擎眼里只有表，没有「这张表是谁的」。所以多租户语义（库归属、表归属、配额、越权校验）全部要在 Go 端落地。</p>
+<p>实现方案对齐了 MySQL 的做法——<strong>元数据也放在系统表里</strong>：</p>
+<ul>
+<li>引擎只看到物理表 <code>t1</code>、<code>t2</code>、<code>t3</code>…（短名）；</li>
+<li>用户、库、逻辑表名的三层语义全部记录在 <code>_databases</code>、<code>_catalog</code> 两张系统表里；</li>
+<li>Go 端在请求入口把用户写下的逻辑 SQL <strong>改写</strong>成物理 SQL（<code>users</code> → <code>t5</code>），引擎无感。</li>
+</ul>
+<p>这样引擎保持纯净（不认识租户），租户逻辑集中在一个包，符合低耦合。</p>
+<h3 id="系统表"><a href="#系统表" class="headerlink" title="系统表"></a>系统表</h3><figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">_databases = [id, owner_id, name, created_at]        <span class="comment">// 库：归属用户 + 库名</span></span><br><span class="line">_catalog   = [id, db_id, table_name, physical_name]  <span class="comment">// 表：逻辑名 → 物理名</span></span><br></pre></td></tr></table></figure>
+
+<p>和 <code>_users</code> 一样引擎自举：<code>SHOW TABLES</code> 查存在，无则 <code>CREATE</code>。<code>_catalog</code> 创建时还要插入一条<strong>保留行</strong> <code>(1, 0, &#39;__next_seq__&#39;, &#39;0&#39;)</code>，<code>physical_name</code> 列存的是<strong>下一个可用的 seq 数字</strong>，作物理名分配器（后面建表小节细说）。</p>
+<p>这里有一个容易忽略的坑：<strong>catalog 表第 0 列必须是引擎要求的 INT 主键</strong>（引擎规定每表第 0 列必须 INT&#x2F;BIGINT 且同主键覆盖）。直觉上应该用 <code>db_id</code> 当主键——但同库要建多张表，<code>db_id</code> 相同会互相覆盖，所以必须加一个自增 <code>id</code> 作主键，<code>db_id + table_name</code> 的唯一性靠查重保证。这是引擎约束反推表结构设计的一个例子。</p>
+<h3 id="物理名分配（建表）"><a href="#物理名分配（建表）" class="headerlink" title="物理名分配（建表）"></a>物理名分配（建表）</h3><p>建一张表不是一条 SQL 的事，而是<strong>一个引擎事务</strong>：锁 seq 行 → 建物理表 → 写 catalog → 推进 seq → COMMIT。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(s *Service)</span></span> createTable(ctx, uid, dbID, sql) &#123;</span><br><span class="line">	<span class="comment">// 前置：归属校验 + 重名检查 + 配额检查</span></span><br><span class="line">	txnID, _, _ := s.q.Begin(ctx, <span class="string">&quot;BEGIN&quot;</span>)</span><br><span class="line">	<span class="keyword">defer</span> s.q.EndTxn(ctx, txnID, <span class="string">&quot;ROLLBACK&quot;</span>)  <span class="comment">// 出错统一回滚</span></span><br><span class="line"></span><br><span class="line">	<span class="comment">// 1. 锁 seq 行：并发建表在此串行化</span></span><br><span class="line">	seqRes := s.q.TxnQuery(ctx, txnID,</span><br><span class="line">		<span class="string">&quot;SELECT * FROM _catalog WHERE db_id = 0 AND table_name = &#x27;__next_seq__&#x27; FOR UPDATE&quot;</span>)</span><br><span class="line">	cur, _ := strconv.ParseUint(seqRes.Rows[<span class="number">0</span>][cPhysx], <span class="number">10</span>, <span class="number">64</span>)</span><br><span class="line">	seq := cur + <span class="number">1</span></span><br><span class="line">	phys := <span class="string">&quot;t&quot;</span> + strconv.FormatUint(seq, <span class="number">10</span>)</span><br><span class="line"></span><br><span class="line">	<span class="comment">// 2. 建物理表（表名改写为物理名，DDL 立即生效）</span></span><br><span class="line">	s.q.TxnQuery(ctx, txnID, rewriteTableName(sql, phys))</span><br><span class="line"></span><br><span class="line">	<span class="comment">// 3. catalog 记录逻辑名 → 物理名；4. seq 推进</span></span><br><span class="line">	s.q.TxnQuery(ctx, txnID, <span class="string">&quot;INSERT INTO _catalog VALUES (&lt;id&gt;, &lt;dbID&gt;, &#x27;&lt;logical&gt;&#x27;, &#x27;&lt;phys&gt;&#x27;)&quot;</span>)</span><br><span class="line">	s.q.TxnQuery(ctx, txnID, <span class="string">&quot;UPDATE _catalog SET physical_name = &#x27;&lt;seq&gt;&#x27; WHERE ... &#x27;__next_seq__&#x27;&quot;</span>)</span><br><span class="line">	s.q.EndTxn(ctx, txnID, <span class="string">&quot;COMMIT&quot;</span>)</span><br><span class="line">	<span class="keyword">return</span> <span class="string">&quot;table created: &quot;</span> + logical</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>关键点：</p>
+<ul>
+<li><strong><code>FOR UPDATE</code> 行锁</strong>：并发建表时，多个事务都去读 seq 行，<code>FOR UPDATE</code> 让它们排队，后到者等先到者 COMMIT 后才能读——分配永远不重复。行锁串行化是引擎事务能力的直接应用，和「MySQL 自增主键分配」是同一类设计。</li>
+<li><strong>崩溃一致性论证</strong>：引擎的 DDL 是<strong>隐式提交、不回滚</strong>的（<code>kSchemaTxn</code>，对齐 MySQL 语义），所以「建物理表成功、写 catalog 前崩溃」会留下孤儿物理表——由启动 reconcile 收敛（见后文）；「catalog 写了、seq 没推进」则下次分配同一个 seq，引擎报表名冲突——防御路径是乐观重试 +1（正常流程不会触发）。这里没有两阶段提交，靠的是<strong>固定顺序 + 对账兜底</strong>的最终一致，这是在对齐引擎能力的前提下能做到的最简方案。</li>
+</ul>
+<h3 id="SQL-改写"><a href="#SQL-改写" class="headerlink" title="SQL 改写"></a>SQL 改写</h3><p>用户写的是逻辑表名，引擎只认物理表名，中间要一层改写。难点在于：<strong>SQL 里的字符串字面量不能碰</strong>。比如 <code>INSERT INTO t VALUES (&#39;FROM users&#39;)</code>，字符串里的 <code>FROM users</code> 如果被当成关键字处理就会破坏语义。</p>
+<p>项目用了一个轻量词法扫描 <code>tokenize</code> 解决：标识符&#x2F;数字按分隔符切分，但<strong>单引号包裹的字符串整体作为一个 token</strong>（内容不解析），改写只定位表名 token、做原文区间替换：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 定位表名 token：CREATE/INSERT INTO/SELECT...FROM/DELETE FROM/UPDATE 之后那个</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">tableTokenIndex</span><span class="params">(toks []token)</span></span> <span class="type">int</span> &#123;</span><br><span class="line">	<span class="keyword">switch</span> strings.ToUpper(toks[<span class="number">0</span>].text) &#123;</span><br><span class="line">	<span class="keyword">case</span> <span class="string">&quot;CREATE&quot;</span>, <span class="string">&quot;DROP&quot;</span>, <span class="string">&quot;ALTER&quot;</span>, <span class="string">&quot;INSERT&quot;</span>:</span><br><span class="line">		<span class="comment">// 关键字后第 2 个 token 是表名</span></span><br><span class="line">	<span class="keyword">case</span> <span class="string">&quot;SELECT&quot;</span>:</span><br><span class="line">		<span class="comment">// 找 FROM 后的 token</span></span><br><span class="line">	<span class="keyword">case</span> <span class="string">&quot;UPDATE&quot;</span>:</span><br><span class="line">		<span class="comment">// 第 1 个 token 是表名</span></span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 改写：用物理名替换原文区间，其余原样保留</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">Rewrite</span><span class="params">(sql <span class="type">string</span>, lookup <span class="keyword">func</span>(<span class="type">string</span>)</span></span> (<span class="type">string</span>, <span class="type">bool</span>)) (<span class="type">string</span>, <span class="type">error</span>) &#123;</span><br><span class="line">	toks := tokenize(sql)</span><br><span class="line">	idx := tableTokenIndex(toks)</span><br><span class="line">	<span class="keyword">if</span> idx &lt; <span class="number">0</span> &#123; <span class="keyword">return</span> sql, <span class="literal">nil</span> &#125;            <span class="comment">// 无表名（BEGIN/SHOW 等）原样返回</span></span><br><span class="line">	name := toks[idx].text</span><br><span class="line">	phys, ok := lookup(name)</span><br><span class="line">	<span class="keyword">if</span> !ok &#123; <span class="keyword">return</span> <span class="string">&quot;&quot;</span>, biz(<span class="string">&quot;table not found: &quot;</span> + name) &#125;</span><br><span class="line">	t := toks[idx]</span><br><span class="line">	<span class="keyword">return</span> sql[:t.start] + phys + sql[t.end:], <span class="literal">nil</span>  <span class="comment">// 只替换表名那一段</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>因为改写只碰表名位置、只做子串替换，字符串里的关键字天然安全；且改写发生在<strong>校验库归属之后</strong>，用户只能改写自己库里的表名。</p>
+<p>配套的还有<strong>错误消息反查</strong>：引擎报错（比如 <code>table not found: t7</code>）里是物理名，用户看不懂。<code>MapError</code> 用正则找消息里的 <code>t\d+</code> 片段，逐个反查 catalog 映射回逻辑名，用户看到的永远是「自己的表名」。同理，<code>SHOW TABLES</code> 也要做租户过滤：引擎返回全部物理表，catalog 过滤出当前库的，返回逻辑名。</p>
+<h3 id="删表与删库"><a href="#删表与删库" class="headerlink" title="删表与删库"></a>删表与删库</h3><p><strong>删表有个必须处理的坑：只让引擎删物理表、不清理 catalog 的话，会留下幽灵记录</strong>——表从引擎没了，但 catalog 里还记着，后果是表列表里「删了还显示」，更严重的是删库时遍历 catalog 逐个 DROP，撞上已不存在的物理表，引擎报错 → 整个删库请求变成 503。所以 <code>dropTable</code> 是两步：引擎 <code>DROP TABLE t7</code> + <code>DELETE FROM _catalog WHERE db_id=.. AND table_name=&#39;..&#39;</code>。删库 <code>DropDatabase</code> 同理：先遍历 DROP 所有物理表（对幽灵记录容错：DROP 失败就跳过，靠后面的 catalog DELETE 统一清理），再清 catalog 行、清库行。</p>
+<h3 id="配额与归属校验"><a href="#配额与归属校验" class="headerlink" title="配额与归属校验"></a>配额与归属校验</h3><p>云平台防滥用：每用户 <strong>3 个库</strong>、每库 <strong>10 张表</strong>（<code>MaxDBsPerUser / MaxTablesPerDB</code> 常量）。建库&#x2F;建表前先数当前数量，超限返回明确的业务错误。</p>
+<p><strong>owner 校验</strong>是隔离的根基：所有租户操作（建表、查表、删库、切库）先 <code>dbOwnedBy</code> 确认「这个库的 owner_id &#x3D;&#x3D; 当前用户的 uid」，否则返回「数据库不存在或无权访问」——<strong>不区分「不存在」和「无权限」</strong>，避免探测别人库名。这个校验在 <code>Preprocess</code> 入口统一做，逻辑表名改写也只在校验通过后进行。</p>
+<h3 id="reconcile"><a href="#reconcile" class="headerlink" title="reconcile"></a>reconcile</h3><p>前面提到建表两步非原子会留孤儿，reconcile 就是启动时的对账收敛：</p>
+<ul>
+<li>引擎有、catalog 无 → <strong>孤儿物理表</strong>（建表崩溃残留 &#x2F; 引擎默认演示表）→ <code>DROP</code>；</li>
+<li>catalog 有、引擎无 → <strong>脏记录</strong>（删表崩溃残留）→ <code>DELETE</code> catalog 行。</li>
+</ul>
+<p>两个容易翻车的细节：<strong>系统表永不参与清理</strong>（<code>_users/_databases/_catalog/_schema</code> 白名单跳过）；<strong><code>__next_seq__</code> 保留行不能删</strong>——它的 <code>physical_name</code> 列存的是 seq 数字（如 <code>&#39;7&#39;</code>）而不是表名，一旦被当成「引擎不存在的表」清掉，物理名分配器就废了。这是脏记录清理逻辑里必须显式跳过的特例（<code>row[cNamex] == seqRowName</code> 跳过）。</p>
+<h3 id="错误分层"><a href="#错误分层" class="headerlink" title="错误分层"></a>错误分层</h3><p>Go 端到 HTTP 层的错误分三层，这个约定贯穿所有包：</p>
+<ul>
+<li><strong>请求层错误</strong>（JSON 解析错、方法不对）→ HTTP 4xx；</li>
+<li><strong>业务层</strong>（SQL 报错、表不存在、配额超限、事务失效）→ <strong>HTTP 200 + <code>{ok:false, msg:...}</code></strong>——SQL 报错是正常业务结果，不是服务故障；</li>
+<li><strong>后端故障</strong>（引擎连不上、池借出超时）→ HTTP 503。</li>
+</ul>
+<p>业务错误的实现是给错误类型加一个标记接口 <code>Biz() bool</code>，handler 用 <code>errors.As</code> 断言区分：能断言到就按 200+ok:false 返回，否则 503。<strong>联调时踩过的坑</strong>：引擎返回业务错误时 Go 的 <code>err</code> 是 <code>nil</code>（错误信息在 <code>res.Msg</code> 里），曾有一版代码只查 <code>err</code> 不查 <code>res.OK</code>，导致 SQL 报错被当成成功、租户层静默假成功。现在所有引擎查询必须检查 <code>res.OK</code>。</p>
+<h2 id="handler"><a href="#handler" class="headerlink" title="handler"></a>handler</h2><p>handler 是 HTTP 层，把「浏览器发来的 HTTP 请求」翻译成「引擎调用」，解析请求、调用连接池、回写 JSON。业务逻辑（SQL 改写、建表分配事务）在 tenant，协议细节（帧&#x2F;编解码）在 engine，handler 把各层串起来。</p>
+<p><code>/api/query</code> 是唯一入口，完整链路：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">HTTP POST /api/query &#123;sql, txn_id?, db_id?&#125;</span><br><span class="line">  → 解析 JSON</span><br><span class="line">  → 事务内缺 db_id？从 txnDB 映射补上（BEGIN 时绑定）</span><br><span class="line">  → 租户预处理：SHOW TABLES 特判 / CREATE 分配事务 / DROP 清理 / 其余 SQL 改写</span><br><span class="line">  → 事务分派 dispatch（begin / 自动事务 / TxnQuery / EndTxn）</span><br><span class="line">  → 错误消息物理名映射回逻辑名</span><br><span class="line">  → 指标埋点 → 回写 JSON</span><br></pre></td></tr></table></figure>
+
+<h3 id="事务分派"><a href="#事务分派" class="headerlink" title="事务分派"></a>事务分派</h3><figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(h *Handler)</span></span> dispatch(r, req) (queryResponse, <span class="type">error</span>) &#123;</span><br><span class="line">	kind := engine.Classify(req.SQL)  <span class="comment">// 首词分类：begin / end / query</span></span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> req.TxnID == <span class="number">0</span> &#123;               <span class="comment">// 无事务</span></span><br><span class="line">		<span class="keyword">if</span> kind == <span class="string">&quot;begin&quot;</span> &#123;</span><br><span class="line">			txnID, res, _ := h.Pool.Begin(ctx, req.SQL)   <span class="comment">// 取连接并绑定</span></span><br><span class="line">			<span class="keyword">return</span> fromResult(res, txnID)                 <span class="comment">// 响应带 txn_id</span></span><br><span class="line">		&#125;</span><br><span class="line">		res, _ := h.Pool.Query(ctx, req.SQL)              <span class="comment">// 自动事务：借→执行→还</span></span><br><span class="line">		<span class="keyword">return</span> fromResult(res, <span class="number">0</span>)</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">if</span> kind == <span class="string">&quot;end&quot;</span> &#123;</span><br><span class="line">		res, _ := h.Pool.EndTxn(ctx, req.TxnID, req.SQL)  <span class="comment">// COMMIT/ROLLBACK</span></span><br><span class="line">		<span class="keyword">return</span> fromResult(res, <span class="number">0</span>)</span><br><span class="line">	&#125;</span><br><span class="line">	res, _ := h.Pool.TxnQuery(ctx, req.TxnID, req.SQL)    <span class="comment">// 事务亲和</span></span><br><span class="line">	<span class="keyword">return</span> fromResult(res, <span class="number">0</span>)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>分派逻辑本身不复杂，核心是把「事务语义」翻译成连接池的三个入口。两个细节：</p>
+<ul>
+<li><strong>BEGIN 响应带 <code>txn_id</code> 和 <code>idle_timeout_s</code></strong>：前端拿到 txn_id 供后续语句携带；拿到空闲超时秒数可以显示倒计时（事务快被回收的提醒），这是「显式告知使用者」的 API 设计。</li>
+<li><strong>错误分层在此落地</strong>：事务失效&#x2F;超时回收是业务状态错误 → 200+ok:false（同时清理 txnDB 条目）；引擎故障 → 503。</li>
+</ul>
+<h3 id="txnDB：事务内免带-db-id"><a href="#txnDB：事务内免带-db-id" class="headerlink" title="txnDB：事务内免带 db_id"></a>txnDB：事务内免带 db_id</h3><p>连接池已经维护了 <code>txnID → 连接</code> 的映射，但多租户层还需要 <code>txnID → db_id</code>（事务内语句要知道在哪个库里改写 SQL）。handler 维护一个 <code>txnDB</code> map：BEGIN 成功时绑定，COMMIT&#x2F;ROLLBACK 时清理。这样事务内语句可以只带 txn_id、不带 db_id，与连接池的事务亲和语义保持一致。这是「后端无状态」原则的一个有意的例外——事务是连接级会话，库上下文随会话保持是同一语义的延伸。</p>
+<h2 id="metrics"><a href="#metrics" class="headerlink" title="metrics"></a>metrics</h2><p>指标层是 admin 专属的可观测性：请求计数 + 慢查询环形缓冲 + QPS 秒窗口，全部内存态（重启清零），通过 <code>/api/metrics</code> 暴露（admin 才能看——单引擎共享架构下这些是平台全局统计）。</p>
+<p>实现要点：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">type</span> Metrics <span class="keyword">struct</span> &#123;</span><br><span class="line">	total, ok, fail, slow atomic.Uint64   <span class="comment">// 计数：原子无锁</span></span><br><span class="line">	slowLog  []SlowEntry                  <span class="comment">// 慢查询环形缓冲</span></span><br><span class="line">	slowNext <span class="type">int</span></span><br><span class="line">	qps      [<span class="number">60</span>]<span class="type">uint64</span>                   <span class="comment">// 近 60 秒 QPS 桶</span></span><br><span class="line">	qpsStart time.Time</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(m *Metrics)</span></span> Record(user, sql <span class="type">string</span>, elapsedUS <span class="type">uint64</span>, ok <span class="type">bool</span>) &#123;</span><br><span class="line">	m.total.Add(<span class="number">1</span>)</span><br><span class="line">	<span class="comment">// QPS：按「当前秒 - 窗口起点」算桶下标，桶满 60 滚动</span></span><br><span class="line">	now := time.Now()</span><br><span class="line">	idx := <span class="type">int</span>(now.Unix() - m.qpsStart.Unix())</span><br><span class="line">	<span class="keyword">if</span> idx &lt; <span class="number">0</span> &#123; idx = <span class="number">0</span> &#125;        <span class="comment">// 时钟回拨防御</span></span><br><span class="line">	<span class="keyword">if</span> idx &gt;= <span class="number">60</span> &#123;</span><br><span class="line">		m.qpsStart = time.Unix(now.Unix(), <span class="number">0</span>)  <span class="comment">// 时钟前跳：起点对齐 + 清零</span></span><br><span class="line">		<span class="keyword">for</span> i := <span class="keyword">range</span> m.qps &#123; m.qps[i] = <span class="number">0</span> &#125;</span><br><span class="line">		idx = <span class="number">0</span></span><br><span class="line">	&#125;</span><br><span class="line">	m.qps[idx]++</span><br><span class="line">	<span class="comment">// 慢查询：引擎耗时 ≥ 阈值 → 进环形缓冲（满则覆盖最旧）</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>踩过的坑：时钟抖动会越界 panic。</strong> QPS 桶下标 &#x3D; <code>当前秒 - 窗口起点秒</code>，在 WSL 环境下 NTP 校时会让时钟<strong>回拨</strong>（下标变负）或<strong>前跳</strong>（下标远超 60），直接数组越界 panic，把整个服务打崩。修复是双保险：<code>idx &lt; 0</code> 归 0（回拨时归入当前桶）；<code>idx &gt;= 60</code> 时起点对齐当前秒并清零（大幅前跳时历史窗口本就无意义）。这是「系统时间不是单调递增」这个反直觉事实带来的教训——之后加了回归测试锁定。</p>
+<p>慢查询环形缓冲的展示顺序也有讲究：<code>Snapshot</code> 里按新→旧排列输出（从写入游标前一个开始逆序），前端直接展示最近 N 条慢 SQL。</p>
+<h2 id="main：装配与进程生命周期"><a href="#main：装配与进程生命周期" class="headerlink" title="main：装配与进程生命周期"></a>main：装配与进程生命周期</h2><p>最后看入口 <code>main.go</code> 怎么把这些模块装起来，以及两个容易被忽略的细节。</p>
+<p><strong>模块装配</strong>：读环境变量（socket 路径、监听地址、池大小、JWT 密钥、管理员用户名、慢查询阈值）→ <code>engine.NewPool</code>（启动即触发预创建 + 事务回收器 + 保活 goroutine）→ <code>auth.New</code>（懒自举 <code>_users</code>）→ <code>tenant.New</code>（懒自举系统表 + 启动 reconcile 对账）→ <code>metrics.New</code> → 注册路由（auth 端点、query、databases&#x2F;use&#x2F;tables、metrics、status）→ 静态托管前端。</p>
+<p><strong>静态托管</strong>：生产模式由 Go 后端直接托管 <code>web/dist</code>（单端口 :3000 部署）。<code>findDist</code> 同时探测 <code>web/dist</code> 和 <code>../web/dist</code>（Go 进程的工作目录不一定在仓库根，两种相对位置都试）。入口页 <code>index.html</code> 设 <code>Cache-Control: no-cache</code>：js&#x2F;css 带内容 hash 天然可缓存，但入口页必须每次校验——否则前端重新 build 后，浏览器还在用缓存的旧 index.html，新版本永远加载不到。这是演示项目里非常实际的「部署了但用户看不到新版」问题的解法。</p>
+<p><strong>优雅关闭</strong>：监听 SIGINT&#x2F;SIGTERM → 先 <code>srv.Shutdown</code>（给在途 HTTP 请求 10 秒窗口）→ 再 <code>pool.Close()</code>（关闭全部连接，引擎侧检测到事务连接断开自动回滚未提交事务）→ 日志「bye」。顺序不能反：先关池会让在途请求的 SQL 突然断连。</p>
+<p>至此，从 C++ 引擎的存储内核，到 Go 端的连接池、认证、多租户、指标与 HTTP 装配，整个系统的每一层都串起来了。回顾一下这条调用链上的「身份」与「连接」两个正交概念：<strong>连接是执行层的无主资源</strong>（8 条共享、复用、事务亲和），<strong>JWT 是应用层的身份凭证</strong>（随请求携带、验签不查库）——多租户层在请求入口拿身份做归属校验与 SQL 改写，连接池在底层保证事务语义与并发上限，各司其职。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://fogjw.github.io">Fogjw</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://fogjw.github.io/2026/08/26/MiniDB%EF%BC%9A%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AA%E6%95%B0%E6%8D%AE%E5%BA%93%E5%86%85%E6%A0%B8%E2%80%94%E2%80%94%E9%A1%B9%E7%9B%AE%E5%BC%80%E5%8F%91%E6%97%A5%E8%AE%B0-6/">https://fogjw.github.io/2026/08/26/MiniDB%EF%BC%9A%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AA%E6%95%B0%E6%8D%AE%E5%BA%93%E5%86%85%E6%A0%B8%E2%80%94%E2%80%94%E9%A1%B9%E7%9B%AE%E5%BC%80%E5%8F%91%E6%97%A5%E8%AE%B0-6/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://fogjw.github.io" target="_blank">Fogjw 的博客</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/Go/">Go</a><a class="post-meta__tags" href="/tags/%E5%8F%8D%E6%80%9D%E6%80%BB%E7%BB%93/">反思总结</a><a class="post-meta__tags" href="/tags/%E6%95%B0%E6%8D%AE%E5%BA%93/">数据库</a></div><div class="post-share"><div class="social-share" data-image="/img/cover/CG_AO03_0101.png" data-sites="facebook,x,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related full-width" href="/2026/08/19/Go%E8%AF%AD%E8%A8%80%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/" title="Go语言学习笔记"><img class="cover" src="/img/cover/CG_SP02_0304.png" onerror="onerror=null;src='/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">Go语言学习笔记</div></div><div class="info-2"><div class="info-item-1"> 本篇面向像笔者这样有C/C++基础、想要入门Go的读者。  认识GoGo语言（Golang）是由Google设计的一种静态强类型、编译型、并发型，并具备垃圾回收功能的开源编程语言。它旨在结合动态语言的开发效率和静态编译语言的安全性及性能，为解决现代软件开发中的规模化和并发问题而生。 Go的设计理念是以软件工程为导向，追求极致的简单、组合与高效并发。 概念了解了解就行了。 go.mod和包（package）go.mod 是 Go 语言官方依赖管理工具 Go Modules的核心文件，定义了当前项目的模块（Module）信息及其所有依赖。 模块 (Module)：是 Go 依赖管理的基本单元。一个模块是一组 Go 包的集合，由项目根目录下的 go.mod 文件定义。每个模块都拥有一个唯一的模块路径 (Module Path) 作为其标识符。 包 (Package)：是 Go 代码组织的基本单元，即同一目录下的一组 .go 源文件的集合。 一个模块包含一个或多个包。一个包的导入路径 (Import Path) 就是 “模块路径 + 包所在子目录”。 比如说假设项目的go.mod有如下...</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/2026/08/18/MiniDB%EF%BC%9A%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AA%E6%95%B0%E6%8D%AE%E5%BA%93%E5%86%85%E6%A0%B8%E2%80%94%E2%80%94%E9%A1%B9%E7%9B%AE%E5%BC%80%E5%8F%91%E6%97%A5%E8%AE%B0-5/" title="MiniDB：从零实现一个数据库内核——项目开发日记(5)"><img class="cover" src="/img/cover/CG_GE07_0101.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-18</div><div class="info-item-2">MiniDB：从零实现一个数据库内核——项目开发日记(5)</div></div><div class="info-2"><div class="info-item-1">2026&#x2F;08&#x2F;18今天继续讲下一个模块，IPC模块，这是本项目C++引擎部分最后一个模块，在整个系统架构中，它负责与Go后端通信。因此在讲本项目的IPC实现之前，先说说IPC是什么。 IPCIPC（Inter-Process Communication），即进程间通信。学过操作系统的都知道，进程拥有独立的虚拟内存空间，不同的进程只可见自己的虚拟内存空间，也就是进程隔离，是操作系统安全性的根基。但是从需求角度，我们难以满足于进程间完全不能通信的情况，需要进程间通信的手段，比如说不同的编程语言各有特点，但单个进程程序只能由一种语言编写、编译，要做到多语言协作，充分发挥不同编程语言的优势，必须要用到进程间通信。 所有的IPC机制本质上都在于双方通过一个都能访问的公共媒介交换字节，那么这个媒介应该由谁提供呢？内核。内核是唯一同时认识所有进程的角色，进程自己不能访问其他进程的内存，但可以通过系统调用（syscall）请求内核对公共媒介读写。 IPC通用模型：      graph LR A[进程 A&lt;br&#x2F;&gt;C++ 引擎] --&gt;|系统调用...</div></div></div></a><a class="pagination-related" href="/2026/08/04/MiniDB%EF%BC%9A%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AA%E6%95%B0%E6%8D%AE%E5%BA%93%E5%86%85%E6%A0%B8%E2%80%94%E2%80%94%E9%A1%B9%E7%9B%AE%E5%BC%80%E5%8F%91%E6%97%A5%E8%AE%B0-2/" title="MiniDB：从零实现一个数据库内核——项目开发日记(2)"><img class="cover" src="/img/cover/AKCG58B_A9.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-04</div><div class="info-item-2">MiniDB：从零实现一个数据库内核——项目开发日记(2)</div></div><div class="info-2"><div class="info-item-1">2026&#x2F;08&#x2F;04这段时间开发完成了WAL(WAL，即Write-Ahead Log，在修改数据之前追加写日志)模块，这个模块的作用是在应用操作之前预写日志，保证文件崩溃一致性，主要逻辑在于把多次操作划分为一个事务，事务保证在崩溃恢复后只存在事务完全没有执行和事务执行完毕两种情况。 实现思路具体考虑实现方法。 策略方面，采用STEAL + NO-FORCE组合。STEAL即未提交的事务的脏页可以刷盘，NO-FORCE即不强制要求在事务提交后立刻刷脏页。但WAL原则要求，日志必须比脏页先落盘。 数据恢复方面，采用ARIES三阶段，即Analysis（分析）、Redo（重放）、Undo（回滚）三步。 每个事务有一个事务id txn，每条日志有一个日志序列号lsn（Log Sequence Number）。 日志文件中有两种日志，一种是操作日志，一种是标识日志，操作日志即如在数据库中进行增删改操作，标识日志不进行数据库操作，只标识信息，下面列出本项目用到的标识日志字段。  begin 事务开始，表示事务的起始 commit 事务提交，表示事务结束，标示事务的完整性...</div></div></div></a><a class="pagination-related" href="/2026/08/19/Go%E8%AF%AD%E8%A8%80%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/" title="Go语言学习笔记"><img class="cover" src="/img/cover/CG_SP02_0304.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-19</div><div class="info-item-2">Go语言学习笔记</div></div><div class="info-2"><div class="info-item-1"> 本篇面向像笔者这样有C/C++基础、想要入门Go的读者。  认识GoGo语言（Golang）是由Google设计的一种静态强类型、编译型、并发型，并具备垃圾回收功能的开源编程语言。它旨在结合动态语言的开发效率和静态编译语言的安全性及性能，为解决现代软件开发中的规模化和并发问题而生。 Go的设计理念是以软件工程为导向，追求极致的简单、组合与高效并发。 概念了解了解就行了。 go.mod和包（package）go.mod 是 Go 语言官方依赖管理工具 Go Modules的核心文件，定义了当前项目的模块（Module）信息及其所有依赖。 模块 (Module)：是 Go 依赖管理的基本单元。一个模块是一组 Go 包的集合，由项目根目录下的 go.mod 文件定义。每个模块都拥有一个唯一的模块路径 (Module Path) 作为其标识符。 包 (Package)：是 Go 代码组织的基本单元，即同一目录下的一组 .go 源文件的集合。 一个模块包含一个或多个包。一个包的导入路径 (Import Path) 就是 “模块路径 + 包所在子目录”。 比如说假设项目的go.mod有如下...</div></div></div></a><a class="pagination-related" href="/2026/08/13/MiniDB%EF%BC%9A%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AA%E6%95%B0%E6%8D%AE%E5%BA%93%E5%86%85%E6%A0%B8%E2%80%94%E2%80%94%E9%A1%B9%E7%9B%AE%E5%BC%80%E5%8F%91%E6%97%A5%E8%AE%B0-4/" title="MiniDB：从零实现一个数据库内核——项目开发日记(4)"><img class="cover" src="/img/cover/CG_HI01_0101.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-13</div><div class="info-item-2">MiniDB：从零实现一个数据库内核——项目开发日记(4)</div></div><div class="info-2"><div class="info-item-1">2026&#x2F;08&#x2F;13 笔者发现一边写博客一边review代码效率很好，所以就这样做吧。  这次主要是完成MVCC模块。首先来介绍一下MVCC： MVCCMVCC(Multiversion Concurrency Control，多版本并发控制)，核心作用即让读操作和写操作互不阻塞，从而在保证事务隔离性的前提下，大幅提升数据库的并发性能。 具体来说，在并发环境下，MVCC通过为同一条数据保存多个版本快照，让读操作通过版本链快照读取，与写操作分离。这样一来，每个事务在执行时，看到的都是某一时间点的数据快照，保证事务的隔离级别。 为什么需要MVCC 在项目已经完成的工作中，已经实现了Lock Manager，通过行锁让读写、写写、写读操作互斥。那么实际上，已经能够通过行锁让事务实现隔离，那么为什么需要MVCC呢？MVCC到底是用来完成什么功能的呢？  MVCC主要对对读取数据精确性要求不高的场景，让读操作读版本快照与写操作并行，从而提高速度。比如说在购票软件上买票时，票数显示并不会在数据库中的票数变动时立即变动，只有用户显式刷新时才会获取最新值进行更新，比如电商平台...</div></div></div></a><a class="pagination-related" href="/2026/07/22/MiniDB%EF%BC%9A%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AA%E6%95%B0%E6%8D%AE%E5%BA%93%E5%86%85%E6%A0%B8%E2%80%94%E2%80%94%E9%A1%B9%E7%9B%AE%E5%BC%80%E5%8F%91%E6%97%A5%E8%AE%B0/" title="MiniDB：从零实现一个数据库内核——项目开发日记(1)"><img class="cover" src="/img/cover/cg_um16_0101.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-22</div><div class="info-item-2">MiniDB：从零实现一个数据库内核——项目开发日记(1)</div></div><div class="info-2"><div class="info-item-1">此文章用于记录在开发MiniDB项目中碰到的问题及解决方法，不懂的点和学习后的总结等诸多碎碎念。 项目介绍 定位：从零实现一个轻量级关系数据库，具备完整的数据库内核能力——缓冲池、索引、事务、恢复、SQL 支持。 目标：在项目开发完成时，此项目应具备能力：   支持部分SQL语句（SELECT&#x2F;INSERT&#x2F;CREATE TABLE&#x2F;DELETE） 支持并发多线程读写，MVCC 快照分离 WAL 预写日志 + ARIES 崩溃恢复 有 Web 管理面板（执行 SQL、看引擎监控）   技术栈：   C++17：模板、智能指针、RAII、移动语义 并发编程：std::thread、std::shared_mutex、std::atomic、std::condition_variable 存储引擎：B+Tree、Buffer Pool、Slotted Page、Clock-Sweep 淘汰 事务与恢复：MVCC、Lock Manager、ARIES WAL 网络通信：Unix Socket、Protocol Buffers Web 开发：Go net&#...</div></div></div></a><a class="pagination-related" href="/2026/08/10/MiniDB%EF%BC%9A%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AA%E6%95%B0%E6%8D%AE%E5%BA%93%E5%86%85%E6%A0%B8%E2%80%94%E2%80%94%E9%A1%B9%E7%9B%AE%E5%BC%80%E5%8F%91%E6%97%A5%E8%AE%B0-3/" title="MiniDB：从零实现一个数据库内核——项目开发日记(3)"><img class="cover" src="/img/cover/CG_SP04_0101.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-10</div><div class="info-item-2">MiniDB：从零实现一个数据库内核——项目开发日记(3)</div></div><div class="info-2"><div class="info-item-1">2026&#x2F;08&#x2F;10这段时间完成了Lock Manager和Table Manager，这些都是MVCC的前置。 Lock Manager概念解析Lock Manager的作用是管理行锁，用于保护数据库表中的一行数据在被当前事务读写时不被其他事务读写，不过读数据其实后面是要通过MVCC的版本链读取的，所以实际的作用是防止当前事务修改一行数据时不会被其他事务同时修改。 在当前数据库的设计中，关于B+树的key-value中的key和value，key是一个表中唯一的索引，即主键id，而value是该主键对应的一行数据，比如一个账单表Order，key就是Order_id，不可重复，而value就是形如”user | item_id | price | order_time”的字符串数据，因此增删改查都是以一行数据为单位，将字符串分析为行数据，修改部分项或全部项再存入B+树，具体的解析在于后面需要做的sql模块，现在不多赘述。 那么我已经实现了B+树的Latch Crabbing，能保证多线程下对B+树的增删查改的安全性，那么为什么还需要行锁呢？ 我们必须清楚的是...</div></div></div></a></div></div><hr class="custom-hr"/><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="fas fa-comments fa-fw"></i><span> 评论</span></div></div><div class="comment-wrap"><div><div id="giscus-wrap"></div></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="/img/avatar.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info-name">Fogjw</div><div class="author-info-description">一个写代码的人</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">12</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">16</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">4</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/Fogjw"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/Fogjw" target="_blank" title="GitHub"><i class="fab fa-github" style="color: #24292e;"></i></a><a class="social-icon" href="https://x.com/Foggggg0924" target="_blank" title="X"><i class="fab fa-x-twitter" style="color: #000000;"></i></a><a class="social-icon" href="javascript:void(0)" target="_blank" title="QQ"><i class="fas fa-envelope" style="color: #4a7dbe;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">欢迎来到我的博客 🎉</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#2026-08-26"><span class="toc-number">1.</span> <span class="toc-text">2026&#x2F;08&#x2F;26</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#enginepb"><span class="toc-number">1.1.</span> <span class="toc-text">enginepb</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#engine"><span class="toc-number">1.2.</span> <span class="toc-text">engine</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%BF%9E%E6%8E%A5%E6%B1%A0"><span class="toc-number">1.2.1.</span> <span class="toc-text">连接池</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#auth"><span class="toc-number">1.3.</span> <span class="toc-text">auth</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#JWT"><span class="toc-number">1.3.1.</span> <span class="toc-text">JWT</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#bcrypt"><span class="toc-number">1.3.2.</span> <span class="toc-text">bcrypt</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%B3%A8%E5%86%8C%E4%B8%8E%E7%99%BB%E5%BD%95"><span class="toc-number">1.3.3.</span> <span class="toc-text">注册与登录</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%89%B4%E6%9D%83%E4%B8%AD%E9%97%B4%E4%BB%B6"><span class="toc-number">1.3.4.</span> <span class="toc-text">鉴权中间件</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#tenant"><span class="toc-number">1.4.</span> <span class="toc-text">tenant</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%A4%9A%E7%A7%9F%E6%88%B7"><span class="toc-number">1.4.1.</span> <span class="toc-text">多租户</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%B3%BB%E7%BB%9F%E8%A1%A8"><span class="toc-number">1.4.2.</span> <span class="toc-text">系统表</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%89%A9%E7%90%86%E5%90%8D%E5%88%86%E9%85%8D%EF%BC%88%E5%BB%BA%E8%A1%A8%EF%BC%89"><span class="toc-number">1.4.3.</span> <span class="toc-text">物理名分配（建表）</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#SQL-%E6%94%B9%E5%86%99"><span class="toc-number">1.4.4.</span> <span class="toc-text">SQL 改写</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%88%A0%E8%A1%A8%E4%B8%8E%E5%88%A0%E5%BA%93"><span class="toc-number">1.4.5.</span> <span class="toc-text">删表与删库</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%85%8D%E9%A2%9D%E4%B8%8E%E5%BD%92%E5%B1%9E%E6%A0%A1%E9%AA%8C"><span class="toc-number">1.4.6.</span> <span class="toc-text">配额与归属校验</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#reconcile"><span class="toc-number">1.4.7.</span> <span class="toc-text">reconcile</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%94%99%E8%AF%AF%E5%88%86%E5%B1%82"><span class="toc-number">1.4.8.</span> <span class="toc-text">错误分层</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#handler"><span class="toc-number">1.5.</span> <span class="toc-text">handler</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BA%8B%E5%8A%A1%E5%88%86%E6%B4%BE"><span class="toc-number">1.5.1.</span> <span class="toc-text">事务分派</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#txnDB%EF%BC%9A%E4%BA%8B%E5%8A%A1%E5%86%85%E5%85%8D%E5%B8%A6-db-id"><span class="toc-number">1.5.2.</span> <span class="toc-text">txnDB：事务内免带 db_id</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#metrics"><span class="toc-number">1.6.</span> <span class="toc-text">metrics</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#main%EF%BC%9A%E8%A3%85%E9%85%8D%E4%B8%8E%E8%BF%9B%E7%A8%8B%E7%94%9F%E5%91%BD%E5%91%A8%E6%9C%9F"><span class="toc-number">1.7.</span> <span class="toc-text">main：装配与进程生命周期</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/2026/08/26/MiniDB%EF%BC%9A%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AA%E6%95%B0%E6%8D%AE%E5%BA%93%E5%86%85%E6%A0%B8%E2%80%94%E2%80%94%E9%A1%B9%E7%9B%AE%E5%BC%80%E5%8F%91%E6%97%A5%E8%AE%B0-6/" title="MiniDB：从零实现一个数据库内核——项目开发日记(6)"><img src="/img/cover/CG_AO03_0101.png" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="MiniDB：从零实现一个数据库内核——项目开发日记(6)"/></a><div class="content"><a class="title" href="/2026/08/26/MiniDB%EF%BC%9A%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AA%E6%95%B0%E6%8D%AE%E5%BA%93%E5%86%85%E6%A0%B8%E2%80%94%E2%80%94%E9%A1%B9%E7%9B%AE%E5%BC%80%E5%8F%91%E6%97%A5%E8%AE%B0-6/" title="MiniDB：从零实现一个数据库内核——项目开发日记(6)">MiniDB：从零实现一个数据库内核——项目开发日记(6)</a><time datetime="2026-08-26T07:33:39.000Z" title="发表于 2026-08-26 15:33:39">2026-08-26</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/08/19/Go%E8%AF%AD%E8%A8%80%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/" title="Go语言学习笔记"><img src="/img/cover/CG_SP02_0304.png" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Go语言学习笔记"/></a><div class="content"><a class="title" href="/2026/08/19/Go%E8%AF%AD%E8%A8%80%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/" title="Go语言学习笔记">Go语言学习笔记</a><time datetime="2026-08-19T05:40:33.000Z" title="发表于 2026-08-19 13:40:33">2026-08-19</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/08/18/MiniDB%EF%BC%9A%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AA%E6%95%B0%E6%8D%AE%E5%BA%93%E5%86%85%E6%A0%B8%E2%80%94%E2%80%94%E9%A1%B9%E7%9B%AE%E5%BC%80%E5%8F%91%E6%97%A5%E8%AE%B0-5/" title="MiniDB：从零实现一个数据库内核——项目开发日记(5)"><img src="/img/cover/CG_GE07_0101.png" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="MiniDB：从零实现一个数据库内核——项目开发日记(5)"/></a><div class="content"><a class="title" href="/2026/08/18/MiniDB%EF%BC%9A%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AA%E6%95%B0%E6%8D%AE%E5%BA%93%E5%86%85%E6%A0%B8%E2%80%94%E2%80%94%E9%A1%B9%E7%9B%AE%E5%BC%80%E5%8F%91%E6%97%A5%E8%AE%B0-5/" title="MiniDB：从零实现一个数据库内核——项目开发日记(5)">MiniDB：从零实现一个数据库内核——项目开发日记(5)</a><time datetime="2026-08-18T14:52:03.000Z" title="发表于 2026-08-18 22:52:03">2026-08-18</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/08/13/MiniDB%EF%BC%9A%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AA%E6%95%B0%E6%8D%AE%E5%BA%93%E5%86%85%E6%A0%B8%E2%80%94%E2%80%94%E9%A1%B9%E7%9B%AE%E5%BC%80%E5%8F%91%E6%97%A5%E8%AE%B0-4/" title="MiniDB：从零实现一个数据库内核——项目开发日记(4)"><img src="/img/cover/CG_HI01_0101.png" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="MiniDB：从零实现一个数据库内核——项目开发日记(4)"/></a><div class="content"><a class="title" href="/2026/08/13/MiniDB%EF%BC%9A%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AA%E6%95%B0%E6%8D%AE%E5%BA%93%E5%86%85%E6%A0%B8%E2%80%94%E2%80%94%E9%A1%B9%E7%9B%AE%E5%BC%80%E5%8F%91%E6%97%A5%E8%AE%B0-4/" title="MiniDB：从零实现一个数据库内核——项目开发日记(4)">MiniDB：从零实现一个数据库内核——项目开发日记(4)</a><time datetime="2026-08-13T13:54:14.000Z" title="发表于 2026-08-13 21:54:14">2026-08-13</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/08/10/MiniDB%EF%BC%9A%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AA%E6%95%B0%E6%8D%AE%E5%BA%93%E5%86%85%E6%A0%B8%E2%80%94%E2%80%94%E9%A1%B9%E7%9B%AE%E5%BC%80%E5%8F%91%E6%97%A5%E8%AE%B0-3/" title="MiniDB：从零实现一个数据库内核——项目开发日记(3)"><img src="/img/cover/CG_SP04_0101.png" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="MiniDB：从零实现一个数据库内核——项目开发日记(3)"/></a><div class="content"><a class="title" href="/2026/08/10/MiniDB%EF%BC%9A%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AA%E6%95%B0%E6%8D%AE%E5%BA%93%E5%86%85%E6%A0%B8%E2%80%94%E2%80%94%E9%A1%B9%E7%9B%AE%E5%BC%80%E5%8F%91%E6%97%A5%E8%AE%B0-3/" title="MiniDB：从零实现一个数据库内核——项目开发日记(3)">MiniDB：从零实现一个数据库内核——项目开发日记(3)</a><time datetime="2026-08-10T13:31:23.000Z" title="发表于 2026-08-10 21:31:23">2026-08-10</time></div></div></div></div></div></div></main><footer id="footer"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2026 By Fogjw</span><span class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo 8.1.2</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.6.0</a></span></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><a id="to_comment" href="#post-comment" title="前往评论"><i class="fas fa-comments"></i></a><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.6.0"></script><script src="/js/main.js?v=5.6.0"></script><div class="js-pjax"><script>(() => {
+  const parseViewBox = viewBox => {
+    if (!viewBox) return null
+    const parts = viewBox.trim().split(/[\s,]+/).map(n => Number(n))
+    if (parts.length !== 4 || parts.some(n => Number.isNaN(n))) return null
+    return parts
+  }
+
+  const getSvgViewBox = svg => {
+    const attr = parseViewBox(svg.getAttribute('viewBox'))
+    if (attr) return attr
+
+    // Fallback: use bbox to build a viewBox
+    try {
+      const bbox = svg.getBBox()
+      if (bbox && bbox.width && bbox.height) return [bbox.x, bbox.y, bbox.width, bbox.height]
+    } catch (e) {
+      // getBBox may fail on some edge cases; ignore
+    }
+
+    const w = Number(svg.getAttribute('width')) || 0
+    const h = Number(svg.getAttribute('height')) || 0
+    if (w > 0 && h > 0) return [0, 0, w, h]
+    return [0, 0, 100, 100]
+  }
+
+  const setSvgViewBox = (svg, vb) => {
+    svg.setAttribute('viewBox', `${vb[0]} ${vb[1]} ${vb[2]} ${vb[3]}`)
+  }
+
+  const clamp = (v, min, max) => Math.max(min, Math.min(max, v))
+
+  const openSvgInNewTab = ({ source, initViewBox }) => {
+    const getClonedSvg = () => {
+      if (typeof source === 'string') {
+        const template = document.createElement('template')
+        template.innerHTML = source.trim()
+        const svg = template.content.querySelector('svg')
+        return svg ? svg.cloneNode(true) : null
+      }
+      if (source && typeof source.cloneNode === 'function') {
+        return source.cloneNode(true)
+      }
+      return null
+    }
+
+    const clone = getClonedSvg()
+    if (!clone) return
+    if (initViewBox && initViewBox.length === 4) {
+      clone.setAttribute('viewBox', initViewBox.join(' '))
+    }
+    if (!clone.getAttribute('xmlns')) clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
+    if (!clone.getAttribute('xmlns:xlink') && clone.innerHTML.includes('xlink:')) {
+      clone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink')
+    }
+    // inject background to match current theme
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark'
+    const bg = getComputedStyle(document.body).backgroundColor || (isDark ? '#1e1e1e' : '#ffffff')
+    if (!clone.style.background) clone.style.background = bg
+
+    const serializer = new XMLSerializer()
+    const svgSource = serializer.serializeToString(clone)
+    const htmlSource = `<!doctype html><html><head><meta charset="utf-8" />
+      <style>
+        html, body { width: 100%; height: 100%; margin: 0; display: flex; align-items: center; justify-content: center; background: ${bg}; }
+        svg { max-width: 100%; max-height: 100%; height: auto; width: auto; }
+      </style>
+      </head><body>${svgSource}</body></html>`
+    const blob = new Blob([htmlSource], { type: 'text/html;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    window.open(url, '_blank', 'noopener')
+
+    setTimeout(() => URL.revokeObjectURL(url), 5000)
+  }
+
+  const attachMermaidViewerButton = wrap => {
+    let btn = wrap.querySelector('.mermaid-open-btn')
+    if (!btn) {
+      btn = document.createElement('button')
+      btn.type = 'button'
+      btn.className = 'mermaid-open-btn'
+      wrap.appendChild(btn)
+    }
+
+    btn.innerHTML = '<i class="fa fa-search fa-fw" aria-hidden="true"></i>'
+
+    if (!btn.__mermaidViewerBound) {
+      btn.addEventListener('click', e => {
+        e.preventDefault()
+        e.stopPropagation()
+        const svg = wrap.__mermaidOriginalSvg || wrap.querySelector('svg')
+        if (!svg) return
+        const initViewBox = wrap.__mermaidInitViewBox
+        openSvgInNewTab({ source: svg, initViewBox })
+      })
+      btn.__mermaidViewerBound = true
+    }
+  }
+
+  // Zoom around a point (px, py) in the SVG viewport (in viewBox coordinates)
+  const zoomAtPoint = (vb, factor, px, py) => {
+    const w = vb[2] * factor
+    const h = vb[3] * factor
+    const nx = px - (px - vb[0]) * factor
+    const ny = py - (py - vb[1]) * factor
+    return [nx, ny, w, h]
+  }
+
+  const initMermaidGestures = wrap => {
+    // Clean up previous event listeners and pending frames
+    if (wrap.__mermaidAbortController) {
+      wrap.__mermaidAbortController.abort()
+      if (wrap.__mermaidRafId) cancelAnimationFrame(wrap.__mermaidRafId)
+    }
+    const ac = new AbortController()
+    wrap.__mermaidAbortController = ac
+    const svg = wrap.querySelector('svg')
+    if (!svg) return
+
+    // Ensure viewBox exists so gestures always work
+    const initVb = getSvgViewBox(svg)
+    wrap.__mermaidInitViewBox = initVb
+    wrap.__mermaidCurViewBox = initVb.slice()
+    setSvgViewBox(svg, initVb)
+    // Disable default gestures to prevent scroll chaining and pinch-zoom penetration in Chrome
+    svg.style.touchAction = 'none'
+
+    // Cache BoundingClientRect, throttled on scroll to reduce reflow
+    let cachedRect = svg.getBoundingClientRect()
+    let rectDirty = false
+    const markRectDirty = () => { rectDirty = true }
+    window.addEventListener('resize', markRectDirty, { signal: ac.signal })
+    window.addEventListener('scroll', markRectDirty, { signal: ac.signal, capture: true })
+    const getRect = () => {
+      if (rectDirty) {
+        cachedRect = svg.getBoundingClientRect()
+        rectDirty = false
+      }
+      return cachedRect
+    }
+
+    // Precompute clamp bounds from initial viewBox
+    const minW = initVb[2] * 0.1
+    const maxW = initVb[2] * 10
+    const minH = initVb[3] * 0.1
+    const maxH = initVb[3] * 10
+    const clampVb = vb => {
+      const out = vb.slice()
+      out[2] = clamp(out[2], minW, maxW)
+      out[3] = clamp(out[3], minH, maxH)
+      return out
+    }
+
+    // Throttle DOM updates using requestAnimationFrame
+    let pendingVb = null
+    let rafId = null
+    const applyVb = () => {
+      if (pendingVb) {
+        wrap.__mermaidCurViewBox = pendingVb
+        setSvgViewBox(svg, pendingVb)
+        pendingVb = null
+      }
+      rafId = null
+      wrap.__mermaidRafId = null
+    }
+    const setCurVb = vb => {
+      pendingVb = clampVb(vb)
+      if (!rafId) {
+        rafId = requestAnimationFrame(applyVb)
+        wrap.__mermaidRafId = rafId
+      }
+    }
+
+    const state = {
+      pointers: new Map(),
+      startVb: null,
+      startDist: 0,
+      lastPointerX: 0,
+      lastPointerY: 0
+    }
+
+    const onPointerDown = e => {
+      if (e.pointerType === 'mouse' && e.button !== 0) return
+      svg.setPointerCapture(e.pointerId)
+      const curVb = wrap.__mermaidCurViewBox
+      state.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
+      if (state.pointers.size === 1) {
+        state.startVb = curVb.slice()
+        state.lastPointerX = e.clientX
+        state.lastPointerY = e.clientY
+      } else if (state.pointers.size === 2) {
+        const pts = [...state.pointers.values()]
+        const dx = pts[0].x - pts[1].x
+        const dy = pts[0].y - pts[1].y
+        state.startDist = Math.hypot(dx, dy)
+        state.startVb = curVb.slice()
+      }
+    }
+
+    const onPointerMove = e => {
+      if (!state.pointers.has(e.pointerId)) return
+      state.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
+      const curVb = wrap.__mermaidCurViewBox
+      const rect = getRect()
+      if (state.pointers.size === 1 && state.startVb) {
+        const p = state.pointers.values().next().value
+        const dxClient = p.x - state.lastPointerX
+        const dyClient = p.y - state.lastPointerY
+        state.lastPointerX = p.x
+        state.lastPointerY = p.y
+        const dx = dxClient * (curVb[2] / rect.width)
+        const dy = dyClient * (curVb[3] / rect.height)
+        setCurVb([curVb[0] - dx, curVb[1] - dy, curVb[2], curVb[3]])
+        return
+      }
+      if (state.pointers.size === 2 && state.startVb && state.startDist > 0) {
+        const pts = [...state.pointers.values()]
+        const dx = pts[0].x - pts[1].x
+        const dy = pts[0].y - pts[1].y
+        const dist = Math.hypot(dx, dy)
+        if (!dist) return
+        const factor = state.startDist / dist
+        const cx = (pts[0].x + pts[1].x) / 2
+        const cy = (pts[0].y + pts[1].y) / 2
+        const px = curVb[0] + (cx - rect.left) * (curVb[2] / rect.width)
+        const py = curVb[1] + (cy - rect.top) * (curVb[3] / rect.height)
+        setCurVb(zoomAtPoint(state.startVb, factor, px, py))
+      }
+    }
+
+    const onPointerUpOrCancel = e => {
+      // Release PointerCapture to avoid event capture anomalies
+      if (svg.hasPointerCapture && svg.hasPointerCapture(e.pointerId)) {
+        svg.releasePointerCapture(e.pointerId)
+      }
+      state.pointers.delete(e.pointerId)
+      if (state.pointers.size === 0) {
+        state.startVb = null
+        state.startDist = 0
+      } else if (state.pointers.size === 1) {
+        const p = state.pointers.values().next().value
+        state.lastPointerX = p.x
+        state.lastPointerY = p.y
+      }
+    }
+
+    const onWheel = e => {
+      // Prevent event bubbling from triggering external scroll
+      e.preventDefault()
+      e.stopPropagation()
+      // Normalize deltaY across deltaMode (Chrome uses pixels, Safari uses lines)
+      let delta = e.deltaY
+      if (e.deltaMode === 1) delta *= 16
+      else if (e.deltaMode === 2) delta *= 400
+
+      // Continuous zoom factor: smoother than fixed 1.1/0.9 steps
+      const zoomFactor = Math.pow(1.001, delta)
+
+      const curVb = wrap.__mermaidCurViewBox
+      const rect = getRect()
+      const px = curVb[0] + (e.clientX - rect.left) * (curVb[2] / rect.width)
+      const py = curVb[1] + (e.clientY - rect.top) * (curVb[3] / rect.height)
+      setCurVb(zoomAtPoint(curVb, zoomFactor, px, py))
+    }
+
+    const onDblClick = () => {
+      const init = wrap.__mermaidInitViewBox
+      if (init) setCurVb(init)
+    }
+
+    svg.addEventListener('pointerdown', onPointerDown, { signal: ac.signal })
+    svg.addEventListener('pointermove', onPointerMove, { signal: ac.signal })
+    svg.addEventListener('pointerup', onPointerUpOrCancel, { signal: ac.signal })
+    svg.addEventListener('pointercancel', onPointerUpOrCancel, { signal: ac.signal })
+    svg.addEventListener('wheel', onWheel, { passive: false, signal: ac.signal })
+    svg.addEventListener('dblclick', onDblClick, { signal: ac.signal })
+  }
+
+  const runMermaid = ele => {
+    window.loadMermaid = true
+    const theme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'default'
+    ele.forEach((item, index) => {
+      const mermaidSrc = item.firstElementChild
+      // Clean up event listeners before removing old SVG
+      if (item.__mermaidAbortController) {
+        item.__mermaidAbortController.abort()
+      }
+      const oldSvg = item.querySelector('svg')
+      if (oldSvg) oldSvg.remove()
+      let config = {}
+      try {
+        config = mermaidSrc.dataset.config ? JSON.parse(mermaidSrc.dataset.config) : {}
+      } catch (e) {
+        console.warn('[mermaid] failed to parse dataset.config:', e)
+      }
+      if (!config.theme) {
+        config.theme = theme
+      }
+      const mermaidThemeConfig = `%%{init: ${JSON.stringify(config)}}%%\n`
+      const mermaidID = `mermaid-${index}`
+      const mermaidDefinition = mermaidThemeConfig + mermaidSrc.textContent
+
+      const renderMermaid = svg => {
+        mermaidSrc.insertAdjacentHTML('afterend', svg)
+        if (true) initMermaidGestures(item)
+        item.__mermaidOriginalSvg = svg
+        if (true) attachMermaidViewerButton(item)
+      }
+
+      const handleError = err => {
+        console.error(`[mermaid] render failed for block #${index}:`, err)
+        const errorEl = document.createElement('div')
+        errorEl.className = 'mermaid-error'
+        errorEl.textContent = `Mermaid render error: ${err.message || err}`
+        mermaidSrc.insertAdjacentElement('afterend', errorEl)
+      }
+
+      try {
+        const renderFn = mermaid.render(mermaidID, mermaidDefinition)
+        // mermaid v9 and v10 compatibility
+        if (typeof renderFn === 'string') {
+          renderMermaid(renderFn)
+        } else {
+          renderFn.then(({ svg }) => renderMermaid(svg)).catch(handleError)
+        }
+      } catch (err) {
+        handleError(err)
+      }
+    })
+  }
+
+  const codeToMermaid = $article => {
+    const codeMermaidEle = $article.querySelectorAll('pre > code.mermaid')
+    if (codeMermaidEle.length === 0) return
+
+    codeMermaidEle.forEach(ele => {
+      const preEle = document.createElement('pre')
+      preEle.className = 'mermaid-src'
+      preEle.hidden = true
+      preEle.textContent = ele.textContent
+      const newEle = document.createElement('div')
+      newEle.className = 'mermaid-wrap'
+      newEle.appendChild(preEle)
+      ele.parentNode.replaceWith(newEle)
+    })
+  }
+
+  const loadMermaid = () => {
+    const $article = document.getElementById('article-container')
+    if (!$article) return
+
+    if (true) codeToMermaid($article)
+    const $mermaid = $article.querySelectorAll('.mermaid-wrap')
+    if ($mermaid.length === 0) return
+
+    const runMermaidFn = () => runMermaid($mermaid)
+    btf.addGlobalFn('themeChange', runMermaidFn, 'mermaid')
+    window.loadMermaid ? runMermaidFn() : btf.getScript('https://cdn.jsdelivr.net/npm/mermaid@11.16.0/dist/mermaid.min.js').then(runMermaidFn)
+  }
+
+  btf.addGlobalFn('encrypt', loadMermaid, 'mermaid')
+  window.pjax ? loadMermaid() : document.addEventListener('DOMContentLoaded', loadMermaid)
+})()</script><script>(() => {
+  const isShuoshuo = GLOBAL_CONFIG_SITE.pageType === 'shuoshuo'
+  const option = {"mapping":"pathname","reactionsEnabled":1,"emitMetadata":0,"inputPosition":"bottom","lang":"zh-CN","loading":"lazy"}
+
+  const getGiscusTheme = theme => theme === 'dark' ? 'dark' : 'light'
+
+  const createScriptElement = config => {
+    const ele = document.createElement('script')
+    Object.entries(config).forEach(([key, value]) => {
+      ele.setAttribute(key, value)
+    })
+    return ele
+  }
+
+  const loadGiscus = (el = document, key) => {
+    const mappingConfig = isShuoshuo
+      ? { 'data-mapping': 'specific', 'data-term': key }
+      : { 'data-mapping': (option && option['data-mapping']) || 'pathname' }
+
+    const giscusConfig = {
+      src: 'https://giscus.app/client.js',
+      'data-repo': 'Fogjw/Fogjw.github.io',
+      'data-repo-id': 'R_kgDOTbKKaw',
+      'data-category-id': 'DIC_kwDOTbKKa84DCJ4w',
+      'data-theme': getGiscusTheme(document.documentElement.getAttribute('data-theme')),
+      'data-reactions-enabled': '1',
+      crossorigin: 'anonymous',
+      async: true,
+      ...option,
+      ...mappingConfig
+    }
+
+    const scriptElement = createScriptElement(giscusConfig)
+
+    el.querySelector('#giscus-wrap').appendChild(scriptElement)
+
+    if (isShuoshuo) {
+      window.shuoshuoComment.destroyGiscus = () => {
+        if (el.children.length) {
+          el.innerHTML = ''
+          el.classList.add('no-comment')
+        }
+      }
+    }
+  }
+
+  const changeGiscusTheme = theme => {
+    const iframe = document.querySelector('#giscus-wrap iframe')
+    if (iframe) {
+      const message = {
+        giscus: {
+          setConfig: {
+            theme: getGiscusTheme(theme)
+          }
+        }
+      }
+      iframe.contentWindow.postMessage(message, 'https://giscus.app')
+    }
+  }
+
+  btf.addGlobalFn('themeChange', changeGiscusTheme, 'giscus')
+
+  if (isShuoshuo) {
+    'Giscus' === 'Giscus'
+      ? window.shuoshuoComment = { loadComment: loadGiscus }
+      : window.loadOtherComment = loadGiscus
+    return
+  }
+
+  if ('Giscus' === 'Giscus' || !false) {
+    if (false) btf.loadComment(document.getElementById('giscus-wrap'), loadGiscus)
+    else loadGiscus()
+  } else {
+    window.loadOtherComment = loadGiscus
+  }
+})()</script></div><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>
