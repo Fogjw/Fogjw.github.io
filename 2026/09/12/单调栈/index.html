@@ -1,0 +1,833 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>单调栈 | Fogjw 的博客</title><meta name="author" content="Fogjw"><meta name="copyright" content="Fogjw"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="笔者面试时没有反应过来用单调栈，再加上发现leetcode有不少题目可以使用单调栈，因此写此篇来专门介绍单调栈。  概念单调栈（Monotonic Stack）是一种通过维护栈内元素严格单调递增或单调递减来解决问题的数据结构。它的核心思想是**“用空间换时间”，利用栈的先进后出特性，在遍历数组时及时剔除不可能成为后续答案的候选元素**，从而将暴力解法的 O(n²) 时间复杂度优化到 O(n)。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="单调栈">
+<meta property="og:url" content="https://fogjw.github.io/2026/09/12/%E5%8D%95%E8%B0%83%E6%A0%88/index.html">
+<meta property="og:site_name" content="Fogjw 的博客">
+<meta property="og:description" content="笔者面试时没有反应过来用单调栈，再加上发现leetcode有不少题目可以使用单调栈，因此写此篇来专门介绍单调栈。  概念单调栈（Monotonic Stack）是一种通过维护栈内元素严格单调递增或单调递减来解决问题的数据结构。它的核心思想是**“用空间换时间”，利用栈的先进后出特性，在遍历数组时及时剔除不可能成为后续答案的候选元素**，从而将暴力解法的 O(n²) 时间复杂度优化到 O(n)。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://fogjw.github.io/img/cover/Magpie_031.png">
+<meta property="article:published_time" content="2026-09-12T08:21:55.000Z">
+<meta property="article:modified_time" content="2026-09-12T11:19:25.939Z">
+<meta property="article:author" content="Fogjw">
+<meta property="article:tag" content="栈">
+<meta property="article:tag" content="算法">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://fogjw.github.io/img/cover/Magpie_031.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "单调栈",
+  "url": "https://fogjw.github.io/2026/09/12/%E5%8D%95%E8%B0%83%E6%A0%88/",
+  "image": "https://fogjw.github.io/img/cover/Magpie_031.png",
+  "datePublished": "2026-09-12T08:21:55.000Z",
+  "dateModified": "2026-09-12T11:19:25.939Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "Fogjw",
+      "url": "https://fogjw.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="/img/avatar.png"><link rel="canonical" href="https://fogjw.github.io/2026/09/12/%E5%8D%95%E8%B0%83%E6%A0%88/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=5.6.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        const data = { value }
+
+        if (ttl != null) {
+          data.expiry = Date.now() + ttl * 86400000
+        }
+
+        localStorage.setItem(key, JSON.stringify(data))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false,"highlightFullpage":false,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: '单调栈',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><style>#page-header:not(.full_page){background-position:center top -150px!important} .card-info-social-icons{flex-direction:column!important;align-items:stretch!important;gap:4px!important;padding:0 16px 16px} .card-info-social-icons .social-icon{display:flex!important;align-items:center!important;gap:8px!important;padding:6px 12px!important;border-radius:6px!important;transition:background .2s;width:auto!important;height:auto!important;font-size:14px!important} .card-info-social-icons .social-icon:hover{background:var(--btn-bg)!important;color:var(--btn-color)!important} .card-info-social-icons .social-icon i{font-size:20px!important;width:24px!important;text-align:center!important} .card-info-social-icons .social-icon::after{content:attr(title);font-size:14px} .card-info-social-icons .social-icon[title*="QQ"]{pointer-events:none;opacity:.7} .card-info-social-icons .social-icon[title*="QQ"]::after{content:"1778357215@qq.com"} /* ---- 文章页顶部：封面图只在列表显示，进入文章后标题与页面背景共享 ---- */ #page-header.post-bg{background:transparent!important;background-image:none!important} /* 主题默认深色玻璃遮罩一并移除：页面背景完全透出 */ #page-header.post-bg:before{background:transparent!important;background-image:none!important} /* ---- 归档/标签/分类/友链/关于等页面：与首页一致的真 full_page 整屏头部 ---- 头部结构由 scripts/page-fullpage.js 生成时改写为 full_page（含下滑箭头）， 此处仅将页面标题垂直居中（首页 full_page 用 #site-info，这些页用 #page-site-info） */ #page-header.full_page #page-site-info{top:44%;transform:translateY(-50%)!important} </style><meta name="generator" content="Hexo 8.1.2"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(/img/BG014A.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="/img/avatar.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/ loading='lazy'></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">15</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">20</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fas fa-link"></i><span> 友链</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> 关于</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg fixed" id="page-header" style="background-image: url(/img/cover/Magpie_031.png);"><nav id="nav"><span id="blog-info"><a class="nav-site-title" href="/"><span class="site-name">Fogjw 的博客</span></a><a class="nav-page-title" href="/"><span class="site-name">单调栈</span><span class="site-name"><i class="fa-solid fa-circle-arrow-left"></i><span>  返回首页</span></span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fas fa-link"></i><span> 友链</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> 关于</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">单调栈</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-09-12T08:21:55.000Z" title="发表于 2026-09-12 16:21:55">2026-09-12</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-09-12T11:19:25.939Z" title="更新于 2026-09-12 19:19:25">2026-09-12</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/">学习笔记</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><blockquote>
+<p>笔者面试时没有反应过来用单调栈，再加上发现leetcode有不少题目可以使用单调栈，因此写此篇来专门介绍单调栈。</p>
+</blockquote>
+<h1 id="概念"><a href="#概念" class="headerlink" title="概念"></a>概念</h1><p><strong>单调栈（Monotonic Stack）<strong>是一种通过维护栈内元素</strong>严格单调递增或单调递减</strong>来解决问题的数据结构。它的核心思想是**“用空间换时间”<strong>，利用栈的先进后出特性，在遍历数组时</strong>及时剔除不可能成为后续答案的候选元素**，从而将暴力解法的 O(n²) 时间复杂度优化到 O(n)。</p>
+<h1 id="本质与维护规则"><a href="#本质与维护规则" class="headerlink" title="本质与维护规则"></a>本质与维护规则</h1><p>单调栈通常是一个存储数组下标的栈，便于计算距离和取值。</p>
+<ul>
+<li>单调递增栈：栈底元素到栈顶元素递增（通常指的是栈中存储的索引在数组中对应的值递增，递减同理），当新元素<code>x</code>入栈前，弹出栈顶所有**大于等于<code>x</code>**的元素，直到栈顶小于<code>x</code>再入栈。<ul>
+<li>作用：弹出栈顶所有**大于等于<code>x</code>**的元素后，栈顶为左侧&#x2F;右侧（取决于从左还是从右遍历入栈）第一个小于<code>x</code>的元素。</li>
+</ul>
+</li>
+<li>单调递减栈：栈底元素到栈顶元素递减，当新元素<code>x</code>入栈前，弹出栈顶所有**小于等于<code>x</code>**的元素，直到栈顶大于<code>x</code>再入栈。<ul>
+<li>作用：弹出栈顶所有**小于等于<code>x</code>**的元素后，栈顶为左侧&#x2F;右侧（取决于从左还是从右遍历入栈）第一个大于<code>x</code>的元素。</li>
+</ul>
+</li>
+</ul>
+<p>可见，单调栈擅长解决的问题是：一维数组中，寻找任一元素左边&#x2F;右边的第一个比它大&#x2F;小的元素或元素与它的距离。</p>
+<h1 id="实现示例"><a href="#实现示例" class="headerlink" title="实现示例"></a>实现示例</h1><p>了解上述后，我们看一个经典的单调栈问题，<strong>寻找下一个更大元素</strong>。</p>
+<p>题目：给定一个无序数组，求每个元素右边第一个比它大的元素的值，如果不存在则用<code>0</code>替代。</p>
+<p>输入示例1：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">[2, 1, 5]</span><br></pre></td></tr></table></figure>
+<p>输出示例1：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">[5, 5, 0]</span><br></pre></td></tr></table></figure>
+
+<p>输入示例2：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">[4, 1, 3, 5, 5]</span><br></pre></td></tr></table></figure>
+<p>输出示例2：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">[5, 3, 5, 0, 0]</span><br></pre></td></tr></table></figure>
+
+<p>解题：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">Solution</span> &#123;</span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">    <span class="function">vector&lt;<span class="type">int</span>&gt; <span class="title">NextGreaterElement</span><span class="params">(vector&lt;<span class="type">int</span>&gt;&amp; nums)</span> </span>&#123;</span><br><span class="line">        <span class="comment">// TODO</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>读者可以先尝试一下，接下来我们讲如何解。</p>
+<h2 id="题解"><a href="#题解" class="headerlink" title="题解"></a>题解</h2><p>首先，很容易地，我们能想到最暴力的解法，对每个元素，遍历其后的元素，直到出现第一个大于它的元素，记录到结果数组。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">Solution</span> &#123;</span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">    <span class="function">vector&lt;<span class="type">int</span>&gt; <span class="title">NextGreaterElement</span><span class="params">(vector&lt;<span class="type">int</span>&gt;&amp; nums)</span> </span>&#123;</span><br><span class="line">        <span class="type">int</span> n = nums.<span class="built_in">size</span>();</span><br><span class="line">        <span class="keyword">if</span>(n &lt;= <span class="number">0</span>) <span class="keyword">return</span> &#123;&#125;;</span><br><span class="line">        <span class="function">vector&lt;<span class="type">int</span>&gt; <span class="title">ret</span><span class="params">(n, <span class="number">0</span>)</span></span>;</span><br><span class="line">        <span class="keyword">for</span>(<span class="type">int</span> i = <span class="number">0</span>; i &lt; n; ++i) &#123;</span><br><span class="line">            <span class="keyword">for</span>(<span class="type">int</span> j = i + <span class="number">1</span>; j &lt; n; ++j) &#123;</span><br><span class="line">                <span class="keyword">if</span>(nums[j] &gt; nums[i]) &#123;</span><br><span class="line">                    ret[i] = j;</span><br><span class="line">                    <span class="keyword">break</span>;</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> ret;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>时间复杂度O(n^2^)，空间复杂度O(1)。</p>
+<p>我们可以用单调栈来优化时间复杂度，用空间换时间。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">Solution</span> &#123;</span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">    <span class="function">vector&lt;<span class="type">int</span>&gt; <span class="title">NextGreaterElement</span><span class="params">(vector&lt;<span class="type">int</span>&gt;&amp; nums)</span> </span>&#123;</span><br><span class="line">        <span class="type">int</span> n = nums.<span class="built_in">size</span>();</span><br><span class="line">        <span class="keyword">if</span>(n &lt;= <span class="number">0</span>) <span class="keyword">return</span> &#123;&#125;;</span><br><span class="line">        stack&lt;<span class="type">int</span>&gt; stk;</span><br><span class="line">        <span class="function">vector&lt;<span class="type">int</span>&gt; <span class="title">ret</span><span class="params">(n, <span class="number">0</span>)</span></span>;</span><br><span class="line">        <span class="keyword">for</span>(<span class="type">int</span> i = <span class="number">0</span>; i &lt; n; ++i) &#123;</span><br><span class="line">            <span class="keyword">while</span>(!stk.<span class="built_in">empty</span>() &amp;&amp; nums[stk.<span class="built_in">back</span>()] &lt; nums[i]) &#123;</span><br><span class="line">                ret[stk.<span class="built_in">back</span>()] = nums[i];</span><br><span class="line">                stk.<span class="built_in">pop</span>();</span><br><span class="line">            &#125;</span><br><span class="line">            stk.<span class="built_in">push</span>(i);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> ret;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>时间复杂度O(n)，空间复杂度O(n)。</p>
+<p>在这种解法里，我们使用一个栈，存放数组元素的索引，并保证栈底到栈顶元素对应的数组元素单调递减，这样一来，栈中的元素都是没有找到下一个更大元素的元素，且它们的下一个更大元素只会不存在或出现在还未遍历到的数组元素中。</p>
+<p>考虑数组<code>[4, 1, 3, 5, 5]</code>，我们让这个数组沿着这个算法的逻辑走一遍。</p>
+<ol>
+<li>数组不为空，<code>n = 5</code>。</li>
+<li>声明栈和数组。</li>
+</ol>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">stack: []</span><br><span class="line">ret: [0, 0, 0, 0, 0]</span><br></pre></td></tr></table></figure>
+<ol start="3">
+<li><code>i = 0</code>，栈为空，加入<code>i</code>:</li>
+</ol>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">stack: [0]</span><br><span class="line">ret: [0, 0, 0, 0, 0]</span><br></pre></td></tr></table></figure>
+<ol start="4">
+<li><code>i = 1</code>，栈顶为<code>0</code>，<code>nums[0] &gt; nums[1]</code>，栈加入<code>i</code>:</li>
+</ol>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">stack: [0, 1]</span><br><span class="line">ret: [0, 0, 0, 0, 0]</span><br></pre></td></tr></table></figure>
+<ol start="5">
+<li><code>i = 2</code>，栈顶为<code>1</code>，<code>nums[1] &lt; nums[2]</code>，<code>ret[1] = nums[2]</code>，栈弹出<code>1</code>:</li>
+</ol>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">stack: [0]</span><br><span class="line">ret: [0, 3, 0, 0, 0]</span><br></pre></td></tr></table></figure>
+<ol start="6">
+<li><code>i = 2</code>，栈顶为<code>0</code>，<code>nums[0] &gt; nums[2]</code>，栈加入<code>i</code>:</li>
+</ol>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">stack: [0, 2]</span><br><span class="line">ret: [0, 3, 0, 0, 0]</span><br></pre></td></tr></table></figure>
+<ol start="7">
+<li><code>i = 3</code>，栈顶为<code>2</code>，<code>nums[2] &lt; nums[3]</code>，<code>ret[2] = nums[3]</code>，栈弹出<code>2</code>:</li>
+</ol>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">stack: [0]</span><br><span class="line">ret: [0, 3, 5, 0, 0]</span><br></pre></td></tr></table></figure>
+<ol start="8">
+<li><code>i = 3</code>，栈顶为<code>0</code>，<code>nums[0] &lt; nums[3]</code>，<code>ret[0] = nums[3]</code>，栈弹出<code>0</code>:</li>
+</ol>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">stack: []</span><br><span class="line">ret: [5, 3, 5, 0, 0]</span><br></pre></td></tr></table></figure>
+<ol start="9">
+<li><code>i = 3</code>，栈空，栈加入<code>i</code>:</li>
+</ol>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">stack: [3]</span><br><span class="line">ret: [5, 3, 5, 0, 0]</span><br></pre></td></tr></table></figure>
+<ol start="10">
+<li><code>i = 4</code>，栈顶为<code>3</code>，<code>nums[3] = nums[4]</code>，栈加入<code>i</code>:</li>
+</ol>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">stack: [3, 4]</span><br><span class="line">ret: [5, 3, 5, 0, 0]</span><br></pre></td></tr></table></figure>
+<ol start="11">
+<li><code>i = 5</code>，退出循环，返回<code>ret</code>:</li>
+</ol>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ret: [5, 3, 5, 0, 0]</span><br></pre></td></tr></table></figure>
+<p>显然，遍历数组元素，如果这个元素符合单调栈规定的单调性，在本题中即栈空或比栈顶元素小或等，就加入栈，如果这个元素不符合单调栈规定的单调性，即比栈顶元素大，就说明对栈顶元素而言，当前元素是第一个比它大的元素，加入结果集合，并弹出栈顶，直到栈空或比栈顶小或等，回到第一种情况，加入栈，等待比当前元素大的下一个元素出现。</p>
+<h1 id="变体"><a href="#变体" class="headerlink" title="变体"></a>变体</h1><p>上面的“下一个更大元素”是单调栈最典型的应用场景，接下来我们结合一些Leetcode算法题来加深理解。</p>
+<h2 id="739-每日温度"><a href="#739-每日温度" class="headerlink" title="739.每日温度"></a>739.每日温度</h2><p>Leetcode链接：<a target="_blank" rel="noopener" href="https://leetcode.cn/problems/daily-temperatures/">739.每日温度</a></p>
+<p><span style="color:#B8860B;">[middle]</span>给定一个整数数组 <code>temperatures</code> ，表示每天的温度，返回一个数组 <code>answer</code> ，其中 <code>answer[i]</code> 是指对于第 <code>i</code> 天，下一个更高温度出现在几天后。如果气温在这之后都不会升高，请在该位置用 <code>0</code> 来代替。</p>
+<p>示例 1:<br><strong>输入</strong>: <code>temperatures = [73,74,75,71,69,72,76,73]</code><br><strong>输出</strong>: <code>[1,1,4,2,1,1,0,0]</code></p>
+<p>示例 2:<br><strong>输入</strong>: <code>temperatures = [30,40,50,60]</code><br><strong>输出</strong>: <code>[1,1,1,0]</code></p>
+<p>示例 3:<br><strong>输入</strong>: <code>temperatures = [30,60,90]</code><br><strong>输出</strong>: <code>[1,1,0]</code></p>
+<p>提示：</p>
+<ul>
+<li><code>1 &lt;= temperatures.length &lt;= 105</code></li>
+<li><code>30 &lt;= temperatures[i] &lt;= 100</code></li>
+</ul>
+<p>解题：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">Solution</span> &#123;</span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">    <span class="function">vector&lt;<span class="type">int</span>&gt; <span class="title">dailyTemperatures</span><span class="params">(vector&lt;<span class="type">int</span>&gt;&amp; temperatures)</span> </span>&#123;</span><br><span class="line">        <span class="comment">// TODO</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<h3 id="题解-1"><a href="#题解-1" class="headerlink" title="题解"></a>题解</h3><p>这一题的变化很小，同样是对每个元素找下一个更大的元素，区别只在于要求的是下一个更大的元素与当前元素的距离。而仔细看上面“寻找下一个更大元素”的题解可知，求解的过程中，结果集的元素之间没有依赖关系，因此仍然只需要维护一个单调栈，区别只在于将索引的差值（即距离）赋值给结果集。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">Solution</span> &#123;</span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">    <span class="function">vector&lt;<span class="type">int</span>&gt; <span class="title">dailyTemperatures</span><span class="params">(vector&lt;<span class="type">int</span>&gt;&amp; temperatures)</span> </span>&#123;</span><br><span class="line">        <span class="type">int</span> n = temperatures.<span class="built_in">size</span>();</span><br><span class="line">        <span class="function">vector&lt;<span class="type">int</span>&gt; <span class="title">ret</span><span class="params">(n, <span class="number">0</span>)</span></span>;</span><br><span class="line">        vector&lt;<span class="type">int</span>&gt; stk;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">for</span>(<span class="type">int</span> i = <span class="number">0</span>; i &lt; n; ++i) &#123;</span><br><span class="line">            <span class="keyword">while</span>(!stk.<span class="built_in">empty</span>() &amp;&amp; temperatures[stk.<span class="built_in">back</span>()] &lt; temperatures[i]) &#123;</span><br><span class="line">                ret[stk.<span class="built_in">back</span>()] = i - stk.<span class="built_in">back</span>();    <span class="comment">// 索引的差值</span></span><br><span class="line">                stk.<span class="built_in">pop_back</span>();</span><br><span class="line">            &#125;</span><br><span class="line">            stk.<span class="built_in">push_back</span>(i);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> ret;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<h2 id="84-柱状图中最大的矩形"><a href="#84-柱状图中最大的矩形" class="headerlink" title="84.柱状图中最大的矩形"></a>84.柱状图中最大的矩形</h2><p>Leetcode链接：<a target="_blank" rel="noopener" href="https://leetcode.cn/problems/largest-rectangle-in-histogram/">84.柱状图中最大的矩形</a></p>
+<p><span style="color:red;">[hard]</span>给定 <code>n</code> 个非负整数，用来表示柱状图中各个柱子的高度。每个柱子彼此相邻，且宽度为 <code>1</code> 。<br>求在该柱状图中，能够勾勒出来的矩形的最大面积。</p>
+<p>示例 1:<br><img src="https://assets.leetcode.com/uploads/2021/01/04/histogram.jpg" alt="示例图1" loading='lazy'><br><strong>输入</strong>：<code>heights = [2,1,5,6,2,3]</code><br><strong>输出</strong>：<code>10</code><br><strong>解释</strong>：最大的矩形为图中红色区域，面积为 <code>10</code></p>
+<p>示例 2:<br><img src="https://assets.leetcode.com/uploads/2021/01/04/histogram-1.jpg" alt="示例图2" loading='lazy'><br><strong>输入</strong>： <code>heights = [2,4]</code><br><strong>输出</strong>： <code>4</code></p>
+<p>提示：</p>
+<ul>
+<li><code>1 &lt;= heights.length &lt;=105</code></li>
+<li><code>0 &lt;= heights[i] &lt;= 104</code></li>
+</ul>
+<p>解题：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">Solution</span> &#123;</span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">    <span class="function"><span class="type">int</span> <span class="title">largestRectangleArea</span><span class="params">(vector&lt;<span class="type">int</span>&gt;&amp; heights)</span> </span>&#123;</span><br><span class="line">        <span class="comment">// TODO</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<h3 id="题解-2"><a href="#题解-2" class="headerlink" title="题解"></a>题解</h3><p>如果从暴力的角度考虑，有两种容易想到的思路，一是对矩形的宽的左边界<code>left</code>和右边界<code>right</code>全部遍历一遍，高取<code>[left, right]</code>范围内元素最小值，二是对矩形的高全部遍历一遍，对于每个元素，都向左向右找到第一个小于当前元素的元素索引，这个范围就是宽。</p>
+<p>以上两种解法的时间复杂度都是O(n^2^)，但是我们注意到第二种解法的关键在于，对每个元素，分别找到左边和右边第一个更小的元素，这就回到了我们的单调栈问题。</p>
+<p>我们首先使用单调栈预处理，得到每个元素的左边和右边第一个更小元素的索引，再对每个元素遍历一遍求面积的最大值，不难看出，时间复杂度是O(n)，空间复杂度O(n)。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">Solution</span> &#123;</span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">    <span class="function"><span class="type">int</span> <span class="title">largestRectangleArea</span><span class="params">(vector&lt;<span class="type">int</span>&gt;&amp; heights)</span> </span>&#123;</span><br><span class="line">        <span class="type">int</span> n = heights.<span class="built_in">size</span>();</span><br><span class="line">        <span class="type">int</span> ans = <span class="number">0</span>;</span><br><span class="line">        <span class="function">vector&lt;<span class="type">int</span>&gt; <span class="title">left</span><span class="params">(n)</span>, <span class="title">right</span><span class="params">(n)</span></span>;</span><br><span class="line">        stack&lt;<span class="type">int</span>&gt; stk;</span><br><span class="line">        <span class="keyword">for</span>(<span class="type">int</span> i = <span class="number">0</span>; i &lt; n; ++i) &#123;</span><br><span class="line">            <span class="keyword">while</span>(!stk.<span class="built_in">empty</span>() &amp;&amp; heights[stk.<span class="built_in">top</span>()] &gt;= heights[i]) &#123;</span><br><span class="line">                stk.<span class="built_in">pop</span>();</span><br><span class="line">            &#125;</span><br><span class="line">            left[i] = stk.<span class="built_in">empty</span>() ? <span class="number">-1</span> : stk.<span class="built_in">top</span>();</span><br><span class="line">            stk.<span class="built_in">push</span>(i);</span><br><span class="line">        &#125;</span><br><span class="line">        </span><br><span class="line">        stk = <span class="built_in">stack</span>&lt;<span class="type">int</span>&gt;();    <span class="comment">// 清空栈</span></span><br><span class="line">        </span><br><span class="line">        <span class="keyword">for</span>(<span class="type">int</span> i = n - <span class="number">1</span>; i &gt;= <span class="number">0</span>; --i) &#123;</span><br><span class="line">            <span class="keyword">while</span>(!stk.<span class="built_in">empty</span>() &amp;&amp; heights[stk.<span class="built_in">top</span>()] &gt;= heights[i]) &#123;</span><br><span class="line">                stk.<span class="built_in">pop</span>();</span><br><span class="line">            &#125;</span><br><span class="line">            right[i] = stk.<span class="built_in">empty</span>() ? n : stk.<span class="built_in">top</span>();</span><br><span class="line">            stk.<span class="built_in">push</span>(i);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">for</span>(<span class="type">int</span> i = <span class="number">0</span>; i &lt; n; ++i) &#123;</span><br><span class="line">            ans = <span class="built_in">max</span>(ans, heights[i] * (right[i] - left[i] - <span class="number">1</span>));</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> ans;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>在这个思路里，我们遍历到一个元素，对栈处理：弹出元素直到栈空或栈顶小于当前元素，此时栈顶就是当前元素左&#x2F;右第一个更小的元素的索引。我们反过来思考一下，在弹出元素时，意味着栈顶元素比当前元素大或者等，也就是当前元素比栈顶元素小或者等，那么我们是否可以将当前元素的索引作为弹出的栈顶元素需要的<code>right[i]</code>？显然，我们需要的正确的<code>right[i]</code>对应数组元素应该严格小于当前元素，而不是小或等。但是如果存在矩形中有多个相同高度的柱子，对于最后一个柱子，能得到正确的<code>right[i]</code>，而对于这些高度相同的柱子，原本都有相同的对应矩形，这种求法使得最右边的柱子对应矩形面积最大，等于原本的正确大小，因此不会影响最终结果的正确性，因此可以将两次遍历优化为一次。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">Solution</span> &#123;</span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">    <span class="function"><span class="type">int</span> <span class="title">largestRectangleArea</span><span class="params">(vector&lt;<span class="type">int</span>&gt;&amp; heights)</span> </span>&#123;</span><br><span class="line">        <span class="type">int</span> n = heights.<span class="built_in">size</span>();</span><br><span class="line">        <span class="type">int</span> ans = <span class="number">0</span>;</span><br><span class="line">        <span class="function">vector&lt;<span class="type">int</span>&gt; <span class="title">left</span><span class="params">(n)</span>, <span class="title">right</span><span class="params">(n, n)</span></span>;</span><br><span class="line">        stack&lt;<span class="type">int</span>&gt; stk;</span><br><span class="line">        <span class="keyword">for</span>(<span class="type">int</span> i = <span class="number">0</span>; i &lt; n; ++i) &#123;</span><br><span class="line">            <span class="keyword">while</span>(!stk.<span class="built_in">empty</span>() &amp;&amp; heights[stk.<span class="built_in">top</span>()] &gt;= heights[i]) &#123;</span><br><span class="line">                right[stk.<span class="built_in">top</span>()] = i;</span><br><span class="line">                stk.<span class="built_in">pop</span>();</span><br><span class="line">            &#125;</span><br><span class="line">            left[i] = stk.<span class="built_in">empty</span>() ? <span class="number">-1</span> : stk.<span class="built_in">top</span>();</span><br><span class="line">            stk.<span class="built_in">push</span>(i);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">for</span>(<span class="type">int</span> i = <span class="number">0</span>; i &lt; n; ++i) &#123;</span><br><span class="line">            ans = <span class="built_in">max</span>(ans, heights[i] * (right[i] - left[i] - <span class="number">1</span>));</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> ans;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>时间复杂度O(n)，空间复杂度O(n)。</p>
+<h2 id="42-接雨水"><a href="#42-接雨水" class="headerlink" title="42.接雨水"></a>42.接雨水</h2><p>Leetcode链接：<a target="_blank" rel="noopener" href="https://leetcode.cn/problems/trapping-rain-water/">42.接雨水</a></p>
+<p><span style="color:red;">[hard]</span>给定 <code>n</code> 个非负整数表示每个宽度为 <code>1</code> 的柱子的高度图，计算按此排列的柱子，下雨之后能接多少雨水。</p>
+<p>示例 1：<br><img src="https://assets.leetcode.cn/aliyun-lc-upload/uploads/2018/10/22/rainwatertrap.png" alt="示例图1" loading='lazy'><br>输入：height &#x3D; [0,1,0,2,1,0,1,3,2,1,2,1]<br>输出：6<br>解释：上面是由数组 [0,1,0,2,1,0,1,3,2,1,2,1] 表示的高度图，在这种情况下，可以接 6 个单位的雨水（蓝色部分表示雨水）。 </p>
+<p>示例 2：<br>输入：height &#x3D; [4,2,0,3,2,5]<br>输出：9</p>
+<p>提示：</p>
+<ul>
+<li><code>n == height.length</code></li>
+<li><code>1 &lt;= n &lt;= 2 * 104</code></li>
+<li><code>0 &lt;= height[i] &lt;= 105</code></li>
+</ul>
+<p>解题：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">Solution</span> &#123;</span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">    <span class="function"><span class="type">int</span> <span class="title">trap</span><span class="params">(vector&lt;<span class="type">int</span>&gt;&amp; height)</span> </span>&#123;</span><br><span class="line">        <span class="comment">// TODO</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<h3 id="题解-3"><a href="#题解-3" class="headerlink" title="题解"></a>题解</h3><p>本题实际上使用双指针能够达到时间复杂度O(n)和空间复杂度O(1)的优秀性能，笔者也更推荐双指针的写法，但是本专题介绍单调栈，因此这里只贴出双指针的代码，不进行具体解释。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">Solution</span> &#123;</span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">    <span class="function"><span class="type">int</span> <span class="title">trap</span><span class="params">(vector&lt;<span class="type">int</span>&gt;&amp; height)</span> </span>&#123;</span><br><span class="line">        <span class="type">int</span> left = <span class="number">0</span>, right = height.<span class="built_in">size</span>() - <span class="number">1</span>;</span><br><span class="line">        <span class="type">int</span> leftMax = <span class="number">0</span>, rightMax = <span class="number">0</span>;</span><br><span class="line">        <span class="type">int</span> ret = <span class="number">0</span>;</span><br><span class="line">        <span class="keyword">while</span>(left &lt;= right) &#123;</span><br><span class="line">            <span class="keyword">if</span>(leftMax &lt; rightMax) &#123;</span><br><span class="line">                leftMax = <span class="built_in">max</span>(leftMax, height[left]);</span><br><span class="line">                ret += leftMax - height[left];</span><br><span class="line">                ++left;</span><br><span class="line">            &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                rightMax = <span class="built_in">max</span>(rightMax, height[right]);</span><br><span class="line">                ret += rightMax - height[right];</span><br><span class="line">                --right;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> ret;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>回到单调栈解法，我们可以维护一个单调递减栈，存储数组的下标索引，当遍历到的元素比栈顶元素大时，只要栈元素数量大于等于2，那么对于栈顶元素，右边有当前元素，左边有栈的下一个元素，就形成了凹槽接水，当栈的下一个元素与栈顶元素相等时，虽然不会接到水，但是最终结果加<code>0</code>，不影响结果。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">Solution</span> &#123;</span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">    <span class="function"><span class="type">int</span> <span class="title">trap</span><span class="params">(vector&lt;<span class="type">int</span>&gt;&amp; height)</span> </span>&#123;</span><br><span class="line">        <span class="type">int</span> ret = <span class="number">0</span>;</span><br><span class="line">        <span class="type">int</span> n = height.<span class="built_in">size</span>();</span><br><span class="line">        stack&lt;<span class="type">int</span>&gt; stk;</span><br><span class="line">        <span class="keyword">for</span>(<span class="type">int</span> i = <span class="number">0</span>; i &lt; n; ++i) &#123;</span><br><span class="line">            <span class="keyword">while</span>(!stk.<span class="built_in">empty</span>() &amp;&amp; height[i] &gt; height[stk.<span class="built_in">top</span>()]) &#123;</span><br><span class="line">                <span class="type">int</span> top = stk.<span class="built_in">top</span>();</span><br><span class="line">                stk.<span class="built_in">pop</span>();</span><br><span class="line">                <span class="keyword">if</span>(stk.<span class="built_in">empty</span>()) <span class="keyword">break</span>;</span><br><span class="line">                <span class="type">int</span> left = stk.<span class="built_in">top</span>();</span><br><span class="line">                ret += (<span class="built_in">min</span>(height[left], height[i]) - height[top]) * (i - left - <span class="number">1</span>);</span><br><span class="line">            &#125;</span><br><span class="line">            stk.<span class="built_in">push</span>(i);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> ret;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>值得注意的是，以示例1为例，<code>ret</code>的增加规律是这样的：<br><img src="https://assets.leetcode.cn/solution-static/42/f11.png" alt="过程1" loading='lazy'><br><img src="https://assets.leetcode.cn/solution-static/42/f14.png" alt="过程2" loading='lazy'></p>
+<h2 id="316-去除重复字母"><a href="#316-去除重复字母" class="headerlink" title="316.去除重复字母"></a>316.去除重复字母</h2><p>Leetcode链接：<a target="_blank" rel="noopener" href="https://leetcode.cn/problems/remove-duplicate-letters/">316.去除重复字母</a></p>
+<p><span style="color:#B8860B;">[middle]</span>给你一个字符串 <code>s</code> ，请你去除字符串中重复的字母，使得每个字母只出现一次。需保证 <strong>返回结果的字典序最小</strong>（要求不能打乱其他字符的相对位置）。</p>
+<p>示例 1：<br><strong>输入</strong>：<code>s = &quot;bcabc&quot;</code><br><strong>输出</strong>：<code>&quot;abc&quot;</code></p>
+<p>示例 2：<br><strong>输入</strong>：<code>s = &quot;cbacdcbc&quot;</code><br><strong>输出</strong>：<code>&quot;acdb&quot;</code></p>
+<p>提示：<br><code>1 &lt;= s.length &lt;= 104</code><br><code>s</code> 由<strong>小写英文字母</strong>组成</p>
+<p>解题：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">Solution</span> &#123;</span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">    <span class="function">string <span class="title">removeDuplicateLetters</span><span class="params">(string s)</span> </span>&#123;</span><br><span class="line">        <span class="comment">// TODO</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<h3 id="题解-4"><a href="#题解-4" class="headerlink" title="题解"></a>题解</h3><p>在传统单调栈中，为了维护单调栈的单调性，我们可以随意地弹出并丢弃元素，但是本题要求<strong>每个出现的字母最终都必须出现且只能出现一次</strong>。</p>
+<p>本题的本质是：给定一个字符串<code>s</code>，选出一个子序列，满足：</p>
+<ul>
+<li>包含<code>s</code>中出现的所有不同字母</li>
+<li>每个字母只出现一次</li>
+<li>不改变字母在<code>s</code>中的相对顺序</li>
+<li>字典序最小<br>因为结果的长度固定为“不同字母个数”，所以字典序最小等价为：从左往右，尽量让当前位的字母更小。</li>
+</ul>
+<p>因此维护下列存储空间：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">string stk;              <span class="comment">// 当前构造的答案，用栈保存</span></span><br><span class="line"><span class="function">vector&lt;<span class="type">int</span>&gt; <span class="title">num</span><span class="params">(<span class="number">26</span>, <span class="number">0</span>)</span></span>;  <span class="comment">// 每个字符在当前位置及之后还剩多少次</span></span><br><span class="line"><span class="function">vector&lt;<span class="type">int</span>&gt; <span class="title">vis</span><span class="params">(<span class="number">26</span>, <span class="number">0</span>)</span></span>;  <span class="comment">// 每个字符是否已经在栈中</span></span><br></pre></td></tr></table></figure>
+<p>由于<code>string</code>完全能实现栈的后进先出操作，所以可以使用<code>string</code>来代替<code>stack</code>，这样也能省略最终将<code>stack</code>转换为<code>string</code>的开销（同理，实际上前面的题目可以用<code>vector</code>代替<code>stack</code>）。</p>
+<p>从左往右扫描字符串<code>s</code>，对于当前字符<code>c</code>，</p>
+<ul>
+<li>如果<code>c</code>已经在栈中，为了保持唯一性，不做操作，从<code>num</code>中减去当前字符的剩余次数。</li>
+<li>如果<code>c</code>不在栈中，考虑<code>c</code>能出现的最靠前位置，加入栈。<ul>
+<li>如果栈顶字符大于<code>c</code>，且字符串后面还有栈顶字符，那么结果串取后面的字符能使字典序更小，因此弹出栈顶更新<code>vis</code>。</li>
+<li>直到栈顶字符小于<code>c</code>，或栈顶字符是字符串的最后一个该字符，则入栈<code>c</code>，更新<code>vis</code>和<code>num</code>。</li>
+</ul>
+</li>
+</ul>
+<p>总的来说，就是对传统单调栈做两个更改：</p>
+<ol>
+<li>扫描到的字符不在<code>vis</code>中才处理</li>
+<li>弹出字符的条件从单纯的比大小增加一条“后面还会出现才能弹出”</li>
+</ol>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">Solution</span> &#123;</span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">    <span class="function">string <span class="title">removeDuplicateLetters</span><span class="params">(string s)</span> </span>&#123;</span><br><span class="line">        string stk;</span><br><span class="line">        <span class="function">vector&lt;<span class="type">int</span>&gt; <span class="title">num</span><span class="params">(<span class="number">26</span>, <span class="number">0</span>)</span>, <span class="title">vis</span><span class="params">(<span class="number">26</span>, <span class="number">0</span>)</span></span>;</span><br><span class="line">        <span class="keyword">for</span>(<span class="type">const</span> <span class="type">char</span>&amp; c : s) &#123;</span><br><span class="line">            ++num[c - <span class="string">&#x27;a&#x27;</span>];</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">for</span>(<span class="type">const</span> <span class="type">char</span>&amp; c : s) &#123;</span><br><span class="line">            <span class="keyword">if</span>(!vis[c - <span class="string">&#x27;a&#x27;</span>]) &#123;</span><br><span class="line">                <span class="keyword">while</span>(!stk.<span class="built_in">empty</span>() &amp;&amp; stk.<span class="built_in">back</span>() &gt; c &amp;&amp; num[stk.<span class="built_in">back</span>() - <span class="string">&#x27;a&#x27;</span>] &gt; <span class="number">0</span>) &#123;</span><br><span class="line">                    vis[stk.<span class="built_in">back</span>() - <span class="string">&#x27;a&#x27;</span>] = <span class="number">0</span>;</span><br><span class="line">                    stk.<span class="built_in">pop_back</span>();</span><br><span class="line">                &#125;</span><br><span class="line">                vis[c - <span class="string">&#x27;a&#x27;</span>] = <span class="number">1</span>;</span><br><span class="line">                stk.<span class="built_in">push_back</span>(c);</span><br><span class="line">            &#125;</span><br><span class="line">            num[c - <span class="string">&#x27;a&#x27;</span>] -= <span class="number">1</span>;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> stk;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<h2 id="239-滑动窗口最大值"><a href="#239-滑动窗口最大值" class="headerlink" title="239.滑动窗口最大值"></a>239.滑动窗口最大值</h2><p>Leetcode链接：<a target="_blank" rel="noopener" href="https://leetcode.cn/problems/sliding-window-maximum/">239.滑动窗口最大值</a></p>
+<p><span style="color:red;">[hard]</span>给你一个整数数组 <code>nums</code>，有一个大小为 <code>k</code> 的滑动窗口从数组的最左侧移动到数组的最右侧。你只可以看到在滑动窗口内的 <code>k</code> 个数字。滑动窗口每次只向右移动一位。</p>
+<p>返回 <strong>滑动窗口中的最大值</strong> 。</p>
+<p>示例 1：<br>输入：<code>nums = [1,3,-1,-3,5,3,6,7], k = 3</code><br>输出：<code>[3,3,5,5,6,7]</code><br>解释：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">滑动窗口的位置                最大值</span><br><span class="line">---------------               -----</span><br><span class="line">[1  3  -1] -3  5  3  6  7       3</span><br><span class="line"> 1 [3  -1  -3] 5  3  6  7       3</span><br><span class="line"> 1  3 [-1  -3  5] 3  6  7       5</span><br><span class="line"> 1  3  -1 [-3  5  3] 6  7       5</span><br><span class="line"> 1  3  -1  -3 [5  3  6] 7       6</span><br><span class="line"> 1  3  -1  -3  5 [3  6  7]      7</span><br></pre></td></tr></table></figure>
+
+<p>示例 2：<br>输入：<code>nums = [1], k = 1</code><br>输出：<code>[1]</code></p>
+<p>提示：</p>
+<ul>
+<li><code>1 &lt;= nums.length &lt;= 105</code></li>
+<li><code>-104 &lt;= nums[i] &lt;= 104</code></li>
+<li><code>1 &lt;= k &lt;= nums.length</code></li>
+</ul>
+<p>解题:</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">Solution</span> &#123;</span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">    <span class="function">vector&lt;<span class="type">int</span>&gt; <span class="title">maxSlidingWindow</span><span class="params">(vector&lt;<span class="type">int</span>&gt;&amp; nums, <span class="type">int</span> k)</span> </span>&#123;</span><br><span class="line">        <span class="comment">// TODO</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<h3 id="题解-5"><a href="#题解-5" class="headerlink" title="题解"></a>题解</h3><p>如果我们维护一个<strong>单调递减</strong>的序列，那么显然，第一个元素是这个序列最大的，如果维护这个序列是当前的窗口，那么答案就显而易见了。但是为什么不维护一个单调递增的序列呢？取序列最后一个元素为当前窗口最大值，这样难道不可以吗？其实是可以的，但是这样会造成额外的理解负担，因为如果维护一个单调递增的序列，后来的元素需要从序列的左边加入，如果从右边加入，会出现答案不对的情况，例如，对于示例一，如果将<code>k</code>改为<code>2</code>，那么遍历到索引<code>1</code>时，序列为<code>[1, 3]</code>，遍历到索引<code>2</code>时，序列为<code>[3]</code>，遍历到索引<code>3</code>时，序列为<code>[-3]</code>（先排除窗口外的元素再添加元素），此时得到窗口最大值为<code>-3</code>但正确答案是<code>-1</code>，因此不对。</p>
+<p>那么我们维护一个单调递减的序列，序列范围是当前窗口大小，最左边是当前窗口最大值的元素索引，元素从最右边添加，当序列不为空且序列最右边元素小于遍历到的元素时，弹出最右边元素，直到序列为空或最右边元素大于等于遍历到的元素，从最右边加入遍历到的元素。每次加入一个元素弹出序列最左边超出窗口范围的元素，取最左边为当前窗口最大值。</p>
+<p>由此看来，我们需要<strong>对序列的左边和右边都有弹出元素和访问元素的能力</strong>，因此我们使用<code>deque</code>来解。单调栈是一种思想，这不代表我们一定要用<code>stack</code>解题。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">Solution</span> &#123;</span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">    <span class="function">vector&lt;<span class="type">int</span>&gt; <span class="title">maxSlidingWindow</span><span class="params">(vector&lt;<span class="type">int</span>&gt;&amp; nums, <span class="type">int</span> k)</span> </span>&#123;</span><br><span class="line">        deque&lt;<span class="type">int</span>&gt; q;</span><br><span class="line">        vector&lt;<span class="type">int</span>&gt; ret;</span><br><span class="line">        <span class="keyword">for</span>(<span class="type">int</span> i = <span class="number">0</span>; i &lt; k; ++i) &#123;</span><br><span class="line">            <span class="keyword">while</span>(!q.<span class="built_in">empty</span>() &amp;&amp; nums[i] &gt;= nums[q.<span class="built_in">back</span>()]) &#123;</span><br><span class="line">                q.<span class="built_in">pop_back</span>();</span><br><span class="line">            &#125;</span><br><span class="line">            q.<span class="built_in">push_back</span>(i);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        ret.<span class="built_in">push_back</span>(nums[q.<span class="built_in">front</span>()]);</span><br><span class="line">        <span class="type">int</span> n = nums.<span class="built_in">size</span>();</span><br><span class="line">        <span class="keyword">for</span>(<span class="type">int</span> i = k; i &lt; n; ++i) &#123;</span><br><span class="line">            <span class="keyword">while</span>(!q.<span class="built_in">empty</span>() &amp;&amp; nums[i] &gt;= nums[q.<span class="built_in">back</span>()]) &#123;</span><br><span class="line">                q.<span class="built_in">pop_back</span>();</span><br><span class="line">            &#125;</span><br><span class="line">            q.<span class="built_in">push_back</span>(i);</span><br><span class="line">            </span><br><span class="line">            <span class="keyword">while</span>(q.<span class="built_in">front</span>() &lt;= i - k) &#123;</span><br><span class="line">                q.<span class="built_in">pop_front</span>();</span><br><span class="line">            &#125;</span><br><span class="line">            </span><br><span class="line">            ret.<span class="built_in">push_back</span>(nums[q.<span class="built_in">front</span>()]);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> ret;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure></article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://fogjw.github.io">Fogjw</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://fogjw.github.io/2026/09/12/%E5%8D%95%E8%B0%83%E6%A0%88/">https://fogjw.github.io/2026/09/12/%E5%8D%95%E8%B0%83%E6%A0%88/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://fogjw.github.io" target="_blank">Fogjw 的博客</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/%E7%AE%97%E6%B3%95/">算法</a><a class="post-meta__tags" href="/tags/%E6%A0%88/">栈</a></div><div class="post-share"><div class="social-share" data-image="/img/cover/Magpie_031.png" data-sites="facebook,x,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related full-width" href="/2026/09/08/%E9%9D%A2%E7%BB%8F/" title="面经"><img class="cover" src="/img/cover/CG_KY09_0203.png" onerror="onerror=null;src='/img/404.jpg'" alt="cover of next post" loading='lazy'><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">面经</div></div><div class="info-2"><div class="info-item-1">字节技术一面项目深挖 这里问的是笔者的miniDB项目，感兴趣可以看看，这里贴出链接https://github.com/Fogjw/miniDB。  Q1: 你觉得最难的最有技术含量的模块是什么？有遇到什么样的问题？ Q2: 为什么要用B+树？ Q3: B+树的数据是有序的吗？ Q4: value存在哪里？ Q5: 刚刚你提到了WAL，为什么在写数据之前要先去写WAL？ Q6: 既然有这个逻辑，那为什么不把WAL和数据提交一起做呢？ Q7: 如果WAL已经写了，然后数据还没有写，机器断电了，这个时候会发生什么？ Q8: 我们假设数据库里存了一行数据，一个值，比如说是1000，两个请求都对这个value进行减100的操作，这个时候，如果完全不受并发控制，结果可能是多少？ Q9: 如果加锁的话，是怎么样去锁这条数据呢？ Q10: MVCC和锁有什么不同？ Q11: 通过MVCC去读了一个数据，那它在写数据的时候一定会加锁吗？ Q12: 有参考过其他的一些DB吗？有了解过比如MySQL，PG这些吗？区别是什么？ 八股Q13: 我们问一个另外的问题，假设现在有一千万个整数，存在内存里，...</div></div></div></a></nav><hr class="custom-hr"/><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="fas fa-comments fa-fw"></i><span> 评论</span></div></div><div class="comment-wrap"><div><div id="giscus-wrap"></div></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="/img/avatar.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/ loading='lazy'></div><div class="author-info-name">Fogjw</div><div class="author-info-description">一个写代码的人</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">15</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">20</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/Fogjw"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/Fogjw" target="_blank" title="GitHub"><i class="fab fa-github" style="color: #24292e;"></i></a><a class="social-icon" href="https://x.com/Foggggg0924" target="_blank" title="X"><i class="fab fa-x-twitter" style="color: #000000;"></i></a><a class="social-icon" href="javascript:void(0)" target="_blank" title="QQ"><i class="fas fa-envelope" style="color: #4a7dbe;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">欢迎来到我的博客 🎉</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%A6%82%E5%BF%B5"><span class="toc-number">1.</span> <span class="toc-text">概念</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%9C%AC%E8%B4%A8%E4%B8%8E%E7%BB%B4%E6%8A%A4%E8%A7%84%E5%88%99"><span class="toc-number">2.</span> <span class="toc-text">本质与维护规则</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%AE%9E%E7%8E%B0%E7%A4%BA%E4%BE%8B"><span class="toc-number">3.</span> <span class="toc-text">实现示例</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%A2%98%E8%A7%A3"><span class="toc-number">3.1.</span> <span class="toc-text">题解</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%8F%98%E4%BD%93"><span class="toc-number">4.</span> <span class="toc-text">变体</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#739-%E6%AF%8F%E6%97%A5%E6%B8%A9%E5%BA%A6"><span class="toc-number">4.1.</span> <span class="toc-text">739.每日温度</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%A2%98%E8%A7%A3-1"><span class="toc-number">4.1.1.</span> <span class="toc-text">题解</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#84-%E6%9F%B1%E7%8A%B6%E5%9B%BE%E4%B8%AD%E6%9C%80%E5%A4%A7%E7%9A%84%E7%9F%A9%E5%BD%A2"><span class="toc-number">4.2.</span> <span class="toc-text">84.柱状图中最大的矩形</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%A2%98%E8%A7%A3-2"><span class="toc-number">4.2.1.</span> <span class="toc-text">题解</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#42-%E6%8E%A5%E9%9B%A8%E6%B0%B4"><span class="toc-number">4.3.</span> <span class="toc-text">42.接雨水</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%A2%98%E8%A7%A3-3"><span class="toc-number">4.3.1.</span> <span class="toc-text">题解</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#316-%E5%8E%BB%E9%99%A4%E9%87%8D%E5%A4%8D%E5%AD%97%E6%AF%8D"><span class="toc-number">4.4.</span> <span class="toc-text">316.去除重复字母</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%A2%98%E8%A7%A3-4"><span class="toc-number">4.4.1.</span> <span class="toc-text">题解</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#239-%E6%BB%91%E5%8A%A8%E7%AA%97%E5%8F%A3%E6%9C%80%E5%A4%A7%E5%80%BC"><span class="toc-number">4.5.</span> <span class="toc-text">239.滑动窗口最大值</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%A2%98%E8%A7%A3-5"><span class="toc-number">4.5.1.</span> <span class="toc-text">题解</span></a></li></ol></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/2026/09/12/%E5%8D%95%E8%B0%83%E6%A0%88/" title="单调栈"><img src="/img/cover/Magpie_031.png" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="单调栈"/ loading='lazy'></a><div class="content"><a class="title" href="/2026/09/12/%E5%8D%95%E8%B0%83%E6%A0%88/" title="单调栈">单调栈</a><time datetime="2026-09-12T08:21:55.000Z" title="发表于 2026-09-12 16:21:55">2026-09-12</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/09/08/%E9%9D%A2%E7%BB%8F/" title="面经"><img src="/img/cover/CG_KY09_0203.png" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="面经"/ loading='lazy'></a><div class="content"><a class="title" href="/2026/09/08/%E9%9D%A2%E7%BB%8F/" title="面经">面经</a><time datetime="2026-09-08T08:21:55.000Z" title="发表于 2026-09-08 16:21:55">2026-09-08</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/08/26/MiniDB%EF%BC%9A%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AA%E6%95%B0%E6%8D%AE%E5%BA%93%E5%86%85%E6%A0%B8%E2%80%94%E2%80%94%E9%A1%B9%E7%9B%AE%E5%BC%80%E5%8F%91%E6%97%A5%E8%AE%B0-6/" title="MiniDB：从零实现一个数据库内核——项目开发日记(6)"><img src="/img/cover/CG_AO03_0101.png" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="MiniDB：从零实现一个数据库内核——项目开发日记(6)"/ loading='lazy'></a><div class="content"><a class="title" href="/2026/08/26/MiniDB%EF%BC%9A%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AA%E6%95%B0%E6%8D%AE%E5%BA%93%E5%86%85%E6%A0%B8%E2%80%94%E2%80%94%E9%A1%B9%E7%9B%AE%E5%BC%80%E5%8F%91%E6%97%A5%E8%AE%B0-6/" title="MiniDB：从零实现一个数据库内核——项目开发日记(6)">MiniDB：从零实现一个数据库内核——项目开发日记(6)</a><time datetime="2026-08-26T07:33:39.000Z" title="发表于 2026-08-26 15:33:39">2026-08-26</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/08/19/Go%E8%AF%AD%E8%A8%80%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/" title="Go语言学习笔记"><img src="/img/cover/CG_SP02_0304.png" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Go语言学习笔记"/ loading='lazy'></a><div class="content"><a class="title" href="/2026/08/19/Go%E8%AF%AD%E8%A8%80%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/" title="Go语言学习笔记">Go语言学习笔记</a><time datetime="2026-08-19T05:40:33.000Z" title="发表于 2026-08-19 13:40:33">2026-08-19</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/08/18/MiniDB%EF%BC%9A%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AA%E6%95%B0%E6%8D%AE%E5%BA%93%E5%86%85%E6%A0%B8%E2%80%94%E2%80%94%E9%A1%B9%E7%9B%AE%E5%BC%80%E5%8F%91%E6%97%A5%E8%AE%B0-5/" title="MiniDB：从零实现一个数据库内核——项目开发日记(5)"><img src="/img/cover/CG_GE07_0101.png" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="MiniDB：从零实现一个数据库内核——项目开发日记(5)"/ loading='lazy'></a><div class="content"><a class="title" href="/2026/08/18/MiniDB%EF%BC%9A%E4%BB%8E%E9%9B%B6%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AA%E6%95%B0%E6%8D%AE%E5%BA%93%E5%86%85%E6%A0%B8%E2%80%94%E2%80%94%E9%A1%B9%E7%9B%AE%E5%BC%80%E5%8F%91%E6%97%A5%E8%AE%B0-5/" title="MiniDB：从零实现一个数据库内核——项目开发日记(5)">MiniDB：从零实现一个数据库内核——项目开发日记(5)</a><time datetime="2026-08-18T14:52:03.000Z" title="发表于 2026-08-18 22:52:03">2026-08-18</time></div></div></div></div></div></div></main><footer id="footer"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2026 By Fogjw</span><span class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo 8.1.2</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.6.0</a></span></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><a id="to_comment" href="#post-comment" title="前往评论"><i class="fas fa-comments"></i></a><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.6.0"></script><script src="/js/main.js?v=5.6.0"></script><div class="js-pjax"><script>(() => {
+  const parseViewBox = viewBox => {
+    if (!viewBox) return null
+    const parts = viewBox.trim().split(/[\s,]+/).map(n => Number(n))
+    if (parts.length !== 4 || parts.some(n => Number.isNaN(n))) return null
+    return parts
+  }
+
+  const getSvgViewBox = svg => {
+    const attr = parseViewBox(svg.getAttribute('viewBox'))
+    if (attr) return attr
+
+    // Fallback: use bbox to build a viewBox
+    try {
+      const bbox = svg.getBBox()
+      if (bbox && bbox.width && bbox.height) return [bbox.x, bbox.y, bbox.width, bbox.height]
+    } catch (e) {
+      // getBBox may fail on some edge cases; ignore
+    }
+
+    const w = Number(svg.getAttribute('width')) || 0
+    const h = Number(svg.getAttribute('height')) || 0
+    if (w > 0 && h > 0) return [0, 0, w, h]
+    return [0, 0, 100, 100]
+  }
+
+  const setSvgViewBox = (svg, vb) => {
+    svg.setAttribute('viewBox', `${vb[0]} ${vb[1]} ${vb[2]} ${vb[3]}`)
+  }
+
+  const clamp = (v, min, max) => Math.max(min, Math.min(max, v))
+
+  const openSvgInNewTab = ({ source, initViewBox }) => {
+    const getClonedSvg = () => {
+      if (typeof source === 'string') {
+        const template = document.createElement('template')
+        template.innerHTML = source.trim()
+        const svg = template.content.querySelector('svg')
+        return svg ? svg.cloneNode(true) : null
+      }
+      if (source && typeof source.cloneNode === 'function') {
+        return source.cloneNode(true)
+      }
+      return null
+    }
+
+    const clone = getClonedSvg()
+    if (!clone) return
+    if (initViewBox && initViewBox.length === 4) {
+      clone.setAttribute('viewBox', initViewBox.join(' '))
+    }
+    if (!clone.getAttribute('xmlns')) clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
+    if (!clone.getAttribute('xmlns:xlink') && clone.innerHTML.includes('xlink:')) {
+      clone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink')
+    }
+    // inject background to match current theme
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark'
+    const bg = getComputedStyle(document.body).backgroundColor || (isDark ? '#1e1e1e' : '#ffffff')
+    if (!clone.style.background) clone.style.background = bg
+
+    const serializer = new XMLSerializer()
+    const svgSource = serializer.serializeToString(clone)
+    const htmlSource = `<!doctype html><html><head><meta charset="utf-8" />
+      <style>
+        html, body { width: 100%; height: 100%; margin: 0; display: flex; align-items: center; justify-content: center; background: ${bg}; }
+        svg { max-width: 100%; max-height: 100%; height: auto; width: auto; }
+      </style>
+      </head><body>${svgSource}</body></html>`
+    const blob = new Blob([htmlSource], { type: 'text/html;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    window.open(url, '_blank', 'noopener')
+
+    setTimeout(() => URL.revokeObjectURL(url), 5000)
+  }
+
+  const attachMermaidViewerButton = wrap => {
+    let btn = wrap.querySelector('.mermaid-open-btn')
+    if (!btn) {
+      btn = document.createElement('button')
+      btn.type = 'button'
+      btn.className = 'mermaid-open-btn'
+      wrap.appendChild(btn)
+    }
+
+    btn.innerHTML = '<i class="fa fa-search fa-fw" aria-hidden="true"></i>'
+
+    if (!btn.__mermaidViewerBound) {
+      btn.addEventListener('click', e => {
+        e.preventDefault()
+        e.stopPropagation()
+        const svg = wrap.__mermaidOriginalSvg || wrap.querySelector('svg')
+        if (!svg) return
+        const initViewBox = wrap.__mermaidInitViewBox
+        openSvgInNewTab({ source: svg, initViewBox })
+      })
+      btn.__mermaidViewerBound = true
+    }
+  }
+
+  // Zoom around a point (px, py) in the SVG viewport (in viewBox coordinates)
+  const zoomAtPoint = (vb, factor, px, py) => {
+    const w = vb[2] * factor
+    const h = vb[3] * factor
+    const nx = px - (px - vb[0]) * factor
+    const ny = py - (py - vb[1]) * factor
+    return [nx, ny, w, h]
+  }
+
+  const initMermaidGestures = wrap => {
+    // Clean up previous event listeners and pending frames
+    if (wrap.__mermaidAbortController) {
+      wrap.__mermaidAbortController.abort()
+      if (wrap.__mermaidRafId) cancelAnimationFrame(wrap.__mermaidRafId)
+    }
+    const ac = new AbortController()
+    wrap.__mermaidAbortController = ac
+    const svg = wrap.querySelector('svg')
+    if (!svg) return
+
+    // Ensure viewBox exists so gestures always work
+    const initVb = getSvgViewBox(svg)
+    wrap.__mermaidInitViewBox = initVb
+    wrap.__mermaidCurViewBox = initVb.slice()
+    setSvgViewBox(svg, initVb)
+    // Disable default gestures to prevent scroll chaining and pinch-zoom penetration in Chrome
+    svg.style.touchAction = 'none'
+
+    // Cache BoundingClientRect, throttled on scroll to reduce reflow
+    let cachedRect = svg.getBoundingClientRect()
+    let rectDirty = false
+    const markRectDirty = () => { rectDirty = true }
+    window.addEventListener('resize', markRectDirty, { signal: ac.signal })
+    window.addEventListener('scroll', markRectDirty, { signal: ac.signal, capture: true })
+    const getRect = () => {
+      if (rectDirty) {
+        cachedRect = svg.getBoundingClientRect()
+        rectDirty = false
+      }
+      return cachedRect
+    }
+
+    // Precompute clamp bounds from initial viewBox
+    const minW = initVb[2] * 0.1
+    const maxW = initVb[2] * 10
+    const minH = initVb[3] * 0.1
+    const maxH = initVb[3] * 10
+    const clampVb = vb => {
+      const out = vb.slice()
+      out[2] = clamp(out[2], minW, maxW)
+      out[3] = clamp(out[3], minH, maxH)
+      return out
+    }
+
+    // Throttle DOM updates using requestAnimationFrame
+    let pendingVb = null
+    let rafId = null
+    const applyVb = () => {
+      if (pendingVb) {
+        wrap.__mermaidCurViewBox = pendingVb
+        setSvgViewBox(svg, pendingVb)
+        pendingVb = null
+      }
+      rafId = null
+      wrap.__mermaidRafId = null
+    }
+    const setCurVb = vb => {
+      pendingVb = clampVb(vb)
+      if (!rafId) {
+        rafId = requestAnimationFrame(applyVb)
+        wrap.__mermaidRafId = rafId
+      }
+    }
+
+    const state = {
+      pointers: new Map(),
+      startVb: null,
+      startDist: 0,
+      lastPointerX: 0,
+      lastPointerY: 0
+    }
+
+    const onPointerDown = e => {
+      if (e.pointerType === 'mouse' && e.button !== 0) return
+      svg.setPointerCapture(e.pointerId)
+      const curVb = wrap.__mermaidCurViewBox
+      state.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
+      if (state.pointers.size === 1) {
+        state.startVb = curVb.slice()
+        state.lastPointerX = e.clientX
+        state.lastPointerY = e.clientY
+      } else if (state.pointers.size === 2) {
+        const pts = [...state.pointers.values()]
+        const dx = pts[0].x - pts[1].x
+        const dy = pts[0].y - pts[1].y
+        state.startDist = Math.hypot(dx, dy)
+        state.startVb = curVb.slice()
+      }
+    }
+
+    const onPointerMove = e => {
+      if (!state.pointers.has(e.pointerId)) return
+      state.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
+      const curVb = wrap.__mermaidCurViewBox
+      const rect = getRect()
+      if (state.pointers.size === 1 && state.startVb) {
+        const p = state.pointers.values().next().value
+        const dxClient = p.x - state.lastPointerX
+        const dyClient = p.y - state.lastPointerY
+        state.lastPointerX = p.x
+        state.lastPointerY = p.y
+        const dx = dxClient * (curVb[2] / rect.width)
+        const dy = dyClient * (curVb[3] / rect.height)
+        setCurVb([curVb[0] - dx, curVb[1] - dy, curVb[2], curVb[3]])
+        return
+      }
+      if (state.pointers.size === 2 && state.startVb && state.startDist > 0) {
+        const pts = [...state.pointers.values()]
+        const dx = pts[0].x - pts[1].x
+        const dy = pts[0].y - pts[1].y
+        const dist = Math.hypot(dx, dy)
+        if (!dist) return
+        const factor = state.startDist / dist
+        const cx = (pts[0].x + pts[1].x) / 2
+        const cy = (pts[0].y + pts[1].y) / 2
+        const px = curVb[0] + (cx - rect.left) * (curVb[2] / rect.width)
+        const py = curVb[1] + (cy - rect.top) * (curVb[3] / rect.height)
+        setCurVb(zoomAtPoint(state.startVb, factor, px, py))
+      }
+    }
+
+    const onPointerUpOrCancel = e => {
+      // Release PointerCapture to avoid event capture anomalies
+      if (svg.hasPointerCapture && svg.hasPointerCapture(e.pointerId)) {
+        svg.releasePointerCapture(e.pointerId)
+      }
+      state.pointers.delete(e.pointerId)
+      if (state.pointers.size === 0) {
+        state.startVb = null
+        state.startDist = 0
+      } else if (state.pointers.size === 1) {
+        const p = state.pointers.values().next().value
+        state.lastPointerX = p.x
+        state.lastPointerY = p.y
+      }
+    }
+
+    const onWheel = e => {
+      // Prevent event bubbling from triggering external scroll
+      e.preventDefault()
+      e.stopPropagation()
+      // Normalize deltaY across deltaMode (Chrome uses pixels, Safari uses lines)
+      let delta = e.deltaY
+      if (e.deltaMode === 1) delta *= 16
+      else if (e.deltaMode === 2) delta *= 400
+
+      // Continuous zoom factor: smoother than fixed 1.1/0.9 steps
+      const zoomFactor = Math.pow(1.001, delta)
+
+      const curVb = wrap.__mermaidCurViewBox
+      const rect = getRect()
+      const px = curVb[0] + (e.clientX - rect.left) * (curVb[2] / rect.width)
+      const py = curVb[1] + (e.clientY - rect.top) * (curVb[3] / rect.height)
+      setCurVb(zoomAtPoint(curVb, zoomFactor, px, py))
+    }
+
+    const onDblClick = () => {
+      const init = wrap.__mermaidInitViewBox
+      if (init) setCurVb(init)
+    }
+
+    svg.addEventListener('pointerdown', onPointerDown, { signal: ac.signal })
+    svg.addEventListener('pointermove', onPointerMove, { signal: ac.signal })
+    svg.addEventListener('pointerup', onPointerUpOrCancel, { signal: ac.signal })
+    svg.addEventListener('pointercancel', onPointerUpOrCancel, { signal: ac.signal })
+    svg.addEventListener('wheel', onWheel, { passive: false, signal: ac.signal })
+    svg.addEventListener('dblclick', onDblClick, { signal: ac.signal })
+  }
+
+  const runMermaid = ele => {
+    window.loadMermaid = true
+    const theme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'default'
+    ele.forEach((item, index) => {
+      const mermaidSrc = item.firstElementChild
+      // Clean up event listeners before removing old SVG
+      if (item.__mermaidAbortController) {
+        item.__mermaidAbortController.abort()
+      }
+      const oldSvg = item.querySelector('svg')
+      if (oldSvg) oldSvg.remove()
+      let config = {}
+      try {
+        config = mermaidSrc.dataset.config ? JSON.parse(mermaidSrc.dataset.config) : {}
+      } catch (e) {
+        console.warn('[mermaid] failed to parse dataset.config:', e)
+      }
+      if (!config.theme) {
+        config.theme = theme
+      }
+      const mermaidThemeConfig = `%%{init: ${JSON.stringify(config)}}%%\n`
+      const mermaidID = `mermaid-${index}`
+      const mermaidDefinition = mermaidThemeConfig + mermaidSrc.textContent
+
+      const renderMermaid = svg => {
+        mermaidSrc.insertAdjacentHTML('afterend', svg)
+        if (true) initMermaidGestures(item)
+        item.__mermaidOriginalSvg = svg
+        if (true) attachMermaidViewerButton(item)
+      }
+
+      const handleError = err => {
+        console.error(`[mermaid] render failed for block #${index}:`, err)
+        const errorEl = document.createElement('div')
+        errorEl.className = 'mermaid-error'
+        errorEl.textContent = `Mermaid render error: ${err.message || err}`
+        mermaidSrc.insertAdjacentElement('afterend', errorEl)
+      }
+
+      try {
+        const renderFn = mermaid.render(mermaidID, mermaidDefinition)
+        // mermaid v9 and v10 compatibility
+        if (typeof renderFn === 'string') {
+          renderMermaid(renderFn)
+        } else {
+          renderFn.then(({ svg }) => renderMermaid(svg)).catch(handleError)
+        }
+      } catch (err) {
+        handleError(err)
+      }
+    })
+  }
+
+  const codeToMermaid = $article => {
+    const codeMermaidEle = $article.querySelectorAll('pre > code.mermaid')
+    if (codeMermaidEle.length === 0) return
+
+    codeMermaidEle.forEach(ele => {
+      const preEle = document.createElement('pre')
+      preEle.className = 'mermaid-src'
+      preEle.hidden = true
+      preEle.textContent = ele.textContent
+      const newEle = document.createElement('div')
+      newEle.className = 'mermaid-wrap'
+      newEle.appendChild(preEle)
+      ele.parentNode.replaceWith(newEle)
+    })
+  }
+
+  const loadMermaid = () => {
+    const $article = document.getElementById('article-container')
+    if (!$article) return
+
+    if (true) codeToMermaid($article)
+    const $mermaid = $article.querySelectorAll('.mermaid-wrap')
+    if ($mermaid.length === 0) return
+
+    const runMermaidFn = () => runMermaid($mermaid)
+    btf.addGlobalFn('themeChange', runMermaidFn, 'mermaid')
+    window.loadMermaid ? runMermaidFn() : btf.getScript('https://cdn.jsdelivr.net/npm/mermaid@11.16.0/dist/mermaid.min.js').then(runMermaidFn)
+  }
+
+  btf.addGlobalFn('encrypt', loadMermaid, 'mermaid')
+  window.pjax ? loadMermaid() : document.addEventListener('DOMContentLoaded', loadMermaid)
+})()</script><script>(() => {
+  const isShuoshuo = GLOBAL_CONFIG_SITE.pageType === 'shuoshuo'
+  const option = {"mapping":"pathname","reactionsEnabled":1,"emitMetadata":0,"inputPosition":"bottom","lang":"zh-CN","loading":"lazy"}
+
+  const getGiscusTheme = theme => theme === 'dark' ? 'dark' : 'light'
+
+  const createScriptElement = config => {
+    const ele = document.createElement('script')
+    Object.entries(config).forEach(([key, value]) => {
+      ele.setAttribute(key, value)
+    })
+    return ele
+  }
+
+  const loadGiscus = (el = document, key) => {
+    const mappingConfig = isShuoshuo
+      ? { 'data-mapping': 'specific', 'data-term': key }
+      : { 'data-mapping': (option && option['data-mapping']) || 'pathname' }
+
+    const giscusConfig = {
+      src: 'https://giscus.app/client.js',
+      'data-repo': 'Fogjw/Fogjw.github.io',
+      'data-repo-id': 'R_kgDOTbKKaw',
+      'data-category-id': 'DIC_kwDOTbKKa84DCJ4w',
+      'data-theme': getGiscusTheme(document.documentElement.getAttribute('data-theme')),
+      'data-reactions-enabled': '1',
+      crossorigin: 'anonymous',
+      async: true,
+      ...option,
+      ...mappingConfig
+    }
+
+    const scriptElement = createScriptElement(giscusConfig)
+
+    el.querySelector('#giscus-wrap').appendChild(scriptElement)
+
+    if (isShuoshuo) {
+      window.shuoshuoComment.destroyGiscus = () => {
+        if (el.children.length) {
+          el.innerHTML = ''
+          el.classList.add('no-comment')
+        }
+      }
+    }
+  }
+
+  const changeGiscusTheme = theme => {
+    const iframe = document.querySelector('#giscus-wrap iframe')
+    if (iframe) {
+      const message = {
+        giscus: {
+          setConfig: {
+            theme: getGiscusTheme(theme)
+          }
+        }
+      }
+      iframe.contentWindow.postMessage(message, 'https://giscus.app')
+    }
+  }
+
+  btf.addGlobalFn('themeChange', changeGiscusTheme, 'giscus')
+
+  if (isShuoshuo) {
+    'Giscus' === 'Giscus'
+      ? window.shuoshuoComment = { loadComment: loadGiscus }
+      : window.loadOtherComment = loadGiscus
+    return
+  }
+
+  if ('Giscus' === 'Giscus' || !false) {
+    if (false) btf.loadComment(document.getElementById('giscus-wrap'), loadGiscus)
+    else loadGiscus()
+  } else {
+    window.loadOtherComment = loadGiscus
+  }
+})()</script></div><script src='/js/post-reveal.js'></script><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>
