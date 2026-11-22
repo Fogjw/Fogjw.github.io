@@ -105,3 +105,7 @@ deploy:
   type: git
   repository: https://github.com/Fogjw/Fogjw.github.io.git
   branch: pages
+
+# 临时实验：禁用 hexo-filter-mermaid-diagrams（对照用，实验后删除）
+mermaid:
+  enable: false

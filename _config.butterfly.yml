@@ -39,7 +39,7 @@ avatar:
 disable_top_img: false
 index_img: /img/bg002ax15.png
 background: /img/BG014A.png
-default_top_img: /img/Lokushi.png
+default_top_img: /img/bg002ax15.png
 subtitle:
   enable: true
   effect: true
@@ -129,6 +129,14 @@ giscus:
     lang: zh-CN
     loading: lazy
 
+# --- Mermaid 图表 ---
+mermaid:
+  enable: true
+  code_write: true
+  theme:
+    light: default
+    dark: dark
+
 # --- 右侧工具栏 ---
 rightside:
   open_text: 💬
@@ -164,4 +172,20 @@ inject:
 .card-info-social-icons .social-icon::after{content:attr(title);font-size:14px}
 .card-info-social-icons .social-icon[title*="QQ"]{pointer-events:none;opacity:.7}
 .card-info-social-icons .social-icon[title*="QQ"]::after{content:"1778357215@qq.com"}
+/* ---- 文章页顶部：封面图只在列表显示，进入文章后标题与页面背景共享 ---- */
+#page-header.post-bg{background:transparent!important;background-image:none!important}
+/* 主题默认深色玻璃遮罩一并移除：页面背景完全透出 */
+#page-header.post-bg:before{background:transparent!important;background-image:none!important}
+/* ---- 归档/标签/分类/友链/关于等页面：与首页一致的真 full_page 整屏头部 ----
+   头部结构由 scripts/page-fullpage.js 生成时改写为 full_page（含下滑箭头），
+   此处仅将页面标题垂直居中（首页 full_page 用 #site-info，这些页用 #page-site-info） */
+#page-header.full_page #page-site-info{top:44%;transform:translateY(-50%)!important}
 </style>'
+  bottom:
+    - "<script src='/js/post-reveal.js'></script>"
+
+# --- 图片懒加载（下滑到视口附近才加载，页面更流畅） ---
+lazyload:
+  enable: true
+  native: true
+  field: site

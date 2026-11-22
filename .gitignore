@@ -1,7 +1,47 @@
+# ---- 依赖与构建产物 ----
 node_modules/
 public/
 .deploy_git/
 db.json
+
+# ---- 日志与系统文件 ----
 *.log
 .DS_Store
 Thumbs.db
+
+# ---- 图片等资源文件 ----
+# 只保留在本地磁盘，随 public/ 一起部署，不进入仓库
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.svg
+*.bmp
+*.ico
+*.avif
+*.tif
+*.tiff
+*.psd
+*.ai
+*.sketch
+*.mp4
+*.mov
+*.webm
+*.mp3
+*.wav
+*.zip
+*.7z
+*.rar
+*.pdf
+
+# ---- 文章：只保存在本地，不进入仓库 ----
+source/_posts/
+
+# ---- 草稿：不发布，也不进仓库 ----
+source/_drafts/
+
+# ---- 临时文件与参考资料 ----
+.tmp-*
+*.tmp
+.ref-*/
